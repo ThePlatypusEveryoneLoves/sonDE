@@ -2,10 +2,8 @@
 #include <time.h>
 #include "server.h"
 #include "common.h"
-#include "util.h"
 
 int main() {
-  // TODO: customizable log levels
   INIT_LOG()
 
   struct sonde_server server = {0};
