@@ -4,7 +4,7 @@
 #include "xdg-shell.h"
 #include <unistd.h>
 
-int sonde_server_create(struct sonde_server *server) {
+int sonde_server_create(sonde_server_t server) {
   server->display = wl_display_create();
 
   // backend - abstracts input/output - allows running in existing X/Wayland sessiosn
@@ -48,7 +48,7 @@ int sonde_server_create(struct sonde_server *server) {
   return 0;
 }
 
-int sonde_server_start(struct sonde_server *server) {
+int sonde_server_start(sonde_server_t server) {
   server->socket = wl_display_add_socket_auto(server->display);
   if (server->socket == NULL) {
     wlr_log(WLR_ERROR, "failed to create Wayland socket");
@@ -69,7 +69,7 @@ int sonde_server_start(struct sonde_server *server) {
   return 0;
 }
 
-void sonde_server_destroy(struct sonde_server *server) {
+void sonde_server_destroy(sonde_server_t server) {
   sonde_xdg_shell_destroy(server);
   sonde_seat_destroy(server);
   sonde_outputs_destroy(server);

@@ -1,18 +1,18 @@
 #include "seat.h"
 
 void on_new_input(struct wl_listener *listener, void *data) {
-  struct sonde_server *server = wl_container_of(listener, server, new_input);
+  sonde_server_t server = wl_container_of(listener, server, new_input);
 }
 void on_request_cursor(struct wl_listener *listener, void *data) {
-  struct sonde_server *server = wl_container_of(listener, server, request_cursor);
+  sonde_server_t server = wl_container_of(listener, server, request_cursor);
 }
 void on_request_set_selection(struct wl_listener *listener, void *data) {
-  struct sonde_server *server = wl_container_of(listener, server, request_set_selection);
+  sonde_server_t server = wl_container_of(listener, server, request_set_selection);
   struct wlr_seat_request_set_selection_event *event = data;
   wlr_seat_set_selection(server->seat, event->source, event->serial);
 }
 
-int sonde_seat_initialize(struct sonde_server *server) {
+int sonde_seat_initialize(sonde_server_t server) {
   wl_list_init(&server->keyboards);
   server->new_input.notify = on_new_input;
   server->seat = wlr_seat_create(server->display, "seat0");
@@ -32,6 +32,6 @@ int sonde_seat_initialize(struct sonde_server *server) {
   return 0;
 }
 
-void sonde_seat_destroy(struct sonde_server *server) {
+void sonde_seat_destroy(sonde_server_t server) {
   wlr_seat_destroy(server->seat);
 }

@@ -30,7 +30,7 @@ void on_output_destroy(struct wl_listener *listener, void *data) {
 }
 
 void on_new_output(struct wl_listener *listener, void *data) {
-  struct sonde_server *server = wl_container_of(listener, server, new_output);
+  sonde_server_t server = wl_container_of(listener, server, new_output);
   struct wlr_output *output = data;
 
   // configure output
@@ -74,7 +74,7 @@ void on_new_output(struct wl_listener *listener, void *data) {
   wlr_scene_output_layout_add_output(server->scene_layout, l_output, scene_output);
 }
 
-int sonde_outputs_initialize(struct sonde_server *server) {
+int sonde_outputs_initialize(sonde_server_t server) {
   // handles screen arrangement
   server->output_layout = wlr_output_layout_create(server->display);
 
@@ -88,6 +88,6 @@ int sonde_outputs_initialize(struct sonde_server *server) {
   return 0;
 }
 
-void sonde_outputs_destroy(struct sonde_server *server) {
+void sonde_outputs_destroy(sonde_server_t server) {
   wlr_output_layout_destroy(server->output_layout);
 }

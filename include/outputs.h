@@ -6,12 +6,12 @@
 struct sonde_output {
   struct wl_list link;
   struct wlr_output *output;
-  struct sonde_server *server;
+  sonde_server_t server;
   
   struct wl_listener frame;
   struct wl_listener request_state;
   struct wl_listener destroy;
 };
 
-int sonde_outputs_initialize(struct sonde_server *server);
-void sonde_outputs_destroy(struct sonde_server *server);
+int sonde_outputs_initialize(sonde_server_t server);
+void sonde_outputs_destroy(sonde_server_t server);

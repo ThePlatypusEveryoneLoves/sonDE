@@ -2,5 +2,5 @@
 
 #include "server.h"
 
-int sonde_seat_initialize(struct sonde_server *server);
-void sonde_seat_destroy(struct sonde_server *server);
+int sonde_seat_initialize(sonde_server_t server);
+void sonde_seat_destroy(sonde_server_t server);

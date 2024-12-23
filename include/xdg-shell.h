@@ -4,7 +4,7 @@
 
 struct sonde_toplevel {
   struct wl_list link;
-  struct sonde_server *server;
+  sonde_server_t server;
   struct wlr_xdg_toplevel *toplevel;
   struct wlr_scene_tree *scene_tree;
 
@@ -20,12 +20,12 @@ struct sonde_toplevel {
 };
 
 struct sonde_popup {
-  struct sonde_server *server;
+  sonde_server_t server;
   struct wlr_xdg_popup *popup;
 
   struct wl_listener commit;
   struct wl_listener destroy;
 };
 
-int sonde_xdg_shell_initialize(struct sonde_server *server);
-void sonde_xdg_shell_destroy(struct sonde_server *server);
+int sonde_xdg_shell_initialize(sonde_server_t server);
+void sonde_xdg_shell_destroy(sonde_server_t server);
