@@ -20,6 +20,7 @@ struct sonde_server {
   struct wlr_xdg_shell *xdg_shell;
   struct wl_listener new_toplevel;
   struct wl_listener new_popup;
+  struct sonde_toplevel *grabbed_toplevel;
 
   // seat
   struct wl_list keyboards;
