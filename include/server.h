@@ -32,6 +32,8 @@ struct sonde_server {
   const char* socket;
 };
 
+typedef struct sonde_server *sonde_server_t;
+
 int sonde_server_create(struct sonde_server *server);
 int sonde_server_start(struct sonde_server *server);
 void sonde_server_destroy(struct sonde_server *server);

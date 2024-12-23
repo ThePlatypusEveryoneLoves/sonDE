@@ -62,11 +62,6 @@ int sonde_server_start(struct sonde_server *server) {
     wlr_log(WLR_ERROR, "failed to start backend");
     return 1;
   }
-
-  // start a shell
-  if (fork() == 0) {
-    execl("/bin/sh", "/bin/sh", NULL);
-  }
   
   wlr_log(WLR_INFO, "Server has been started on WAYLAND_DISPLAY=%s", server->socket);
   wl_display_run(server->display);
