@@ -1,5 +1,7 @@
 #include "server.h"
 #include "outputs.h"
+#include "seat.h"
+#include "xdg-shell.h"
 #include <unistd.h>
 
 int sonde_server_create(struct sonde_server *server) {
@@ -35,27 +37,13 @@ int sonde_server_create(struct sonde_server *server) {
     return 1;
   }
 
-  // XDG Shell
-  wl_list_init(&server->toplevels);
-  server->xdg_shell = wlr_xdg_shell_create(server->display, 3);
-  
-  server->new_toplevel.notify = on_new_toplevel;
-  server->new_popup.notify = on_new_popup;
+  if (sonde_xdg_shell_initialize(server) != 0) {
+    return 1;
+  }
 
-  wl_signal_add(&server->xdg_shell->events.new_toplevel, &server->new_toplevel);
-  wl_signal_add(&server->xdg_shell->events.new_popup, &server->new_popup);
-
-
-  // Seat
-  wl_list_init(&server->keyboards);
-  server->new_input.notify = on_new_input;
-  server->seat = wlr_seat_create(server->display, "seat0");
-  server->request_cursor.notify = on_request_cursor;
-  server->request_set_selection.notify = on_request_set_selection;
-
-  wl_signal_add(&server->backend->events.new_input, &server->new_input);
-  wl_signal_add(&server->seat->events.request_set_cursor, &server->request_cursor);
-  wl_signal_add(&server->seat->events.request_set_selection, &server->request_set_selection);
+  if (sonde_seat_initialize(server) != 0) {
+    return 1;
+  }
 
   return 0;
 }
@@ -87,6 +75,9 @@ int sonde_server_start(struct sonde_server *server) {
 }
 
 void sonde_server_destroy(struct sonde_server *server) {
+  sonde_xdg_shell_destroy(server);
+  sonde_seat_destroy(server);
+  sonde_outputs_destroy(server);
   wlr_allocator_destroy(server->allocator);
   wlr_renderer_destroy(server->renderer);
   wlr_backend_destroy(server->backend);

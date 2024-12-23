@@ -10,10 +10,8 @@ struct sonde_server {
 
   // outputs
   struct wlr_output_layout *output_layout;
-  
   struct wl_list outputs;
   struct wl_listener new_output;
-
   struct wlr_scene *scene;
   struct wlr_scene_output_layout *scene_layout;
 

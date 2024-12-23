@@ -9,7 +9,7 @@ LIBS!=$(PKG_CONFIG) --libs $(PKGS)
 SRCS=$(wildcard src/*.c)
 OBJS=$(patsubst src/%.c,bin/%.o,$(SRCS))
 
-all: main
+all: bin/sonde
 
 # wayland-scanner is a tool which generates C headers and rigging for Wayland
 # protocols, which are specified in XML. wlroots requires you to rig these up
@@ -20,7 +20,7 @@ include/xdg-shell-protocol.h:
 bin/%.o: src/%.c  include/xdg-shell-protocol.h
 	$(CC) -c $< -g -Werror $(CFLAGS) -Iinclude -DWLR_USE_UNSTABLE -o $@
 
-sonde: $(OBJS)
+bin/sonde: $(OBJS)
 	$(CC) $^ $> -g -Werror $(CFLAGS) $(LDFLAGS) $(LIBS) -o $@
 
 clean:

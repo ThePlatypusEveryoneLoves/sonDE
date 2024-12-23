@@ -1,5 +1,4 @@
-*.o
+bin/
 xdg-shell-protocol.h
-main
 compile_commands.json
 .cache/
