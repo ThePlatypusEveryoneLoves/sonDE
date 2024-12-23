@@ -18,10 +18,10 @@ include/xdg-shell-protocol.h:
 	$(WAYLAND_SCANNER) server-header $(WAYLAND_PROTOCOLS)/stable/xdg-shell/xdg-shell.xml $@
 
 bin/%.o: src/%.c  include/xdg-shell-protocol.h
-	$(CC) -c $< -g -Werror $(CFLAGS) -Iinclude -DWLR_USE_UNSTABLE -o $@
+	$(CC) -c $< -g -Werror $(CFLAGS) -DDEBUG_LOG -Iinclude -DWLR_USE_UNSTABLE -o $@
 
 bin/sonde: $(OBJS)
-	$(CC) $^ $> -g -Werror $(CFLAGS) $(LDFLAGS) $(LIBS) -o $@
+	$(CC) $^ $> -g -Werror -DDEBUG_LOG $(CFLAGS) $(LDFLAGS) $(LIBS) -o $@
 
 clean:
 	rm -rf bin include/xdg-shell-protocol.h

@@ -2,10 +2,11 @@
 #include <time.h>
 #include "server.h"
 #include "common.h"
+#include "util.h"
 
 int main() {
   // TODO: customizable log levels
-  wlr_log_init(WLR_DEBUG, NULL);
+  INIT_LOG()
 
   struct sonde_server server = {0};
   if (sonde_server_create(&server) != 0) {
