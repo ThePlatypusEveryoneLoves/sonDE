@@ -1,0 +1,94 @@
+#include "server.h"
+#include "outputs.h"
+#include <unistd.h>
+
+int sonde_server_create(struct sonde_server *server) {
+  server->display = wl_display_create();
+
+  // backend - abstracts input/output - allows running in existing X/Wayland sessiosn
+  server->backend = wlr_backend_autocreate(wl_display_get_event_loop(server->display), NULL);
+  if (server->backend == NULL) {
+    wlr_log(WLR_ERROR, "failed to create backend");
+    return 1;
+  }
+
+  server->renderer = wlr_renderer_autocreate(server->backend);
+  if (server->renderer == NULL) {
+    wlr_log(WLR_ERROR, "failed to create renderer");
+    return 1;
+  }
+
+  wlr_renderer_init_wl_display(server->renderer, server->display);
+
+  // allocator - handles screen buffers
+  server->allocator = wlr_allocator_autocreate(server->backend, server->renderer);
+  if (server->allocator == NULL) {
+    wlr_log(WLR_ERROR, "failed to create allocator");
+    return 1;
+  }
+
+  wlr_compositor_create(server->display, /* version */ 5, server->renderer);
+  wlr_subcompositor_create(server->display);
+  wlr_data_device_manager_create(server->display);
+
+  if (sonde_outputs_initialize(server) != 0) {
+    return 1;
+  }
+
+  // XDG Shell
+  wl_list_init(&server->toplevels);
+  server->xdg_shell = wlr_xdg_shell_create(server->display, 3);
+  
+  server->new_toplevel.notify = on_new_toplevel;
+  server->new_popup.notify = on_new_popup;
+
+  wl_signal_add(&server->xdg_shell->events.new_toplevel, &server->new_toplevel);
+  wl_signal_add(&server->xdg_shell->events.new_popup, &server->new_popup);
+
+
+  // Seat
+  wl_list_init(&server->keyboards);
+  server->new_input.notify = on_new_input;
+  server->seat = wlr_seat_create(server->display, "seat0");
+  server->request_cursor.notify = on_request_cursor;
+  server->request_set_selection.notify = on_request_set_selection;
+
+  wl_signal_add(&server->backend->events.new_input, &server->new_input);
+  wl_signal_add(&server->seat->events.request_set_cursor, &server->request_cursor);
+  wl_signal_add(&server->seat->events.request_set_selection, &server->request_set_selection);
+
+  return 0;
+}
+
+int sonde_server_start(struct sonde_server *server) {
+  server->socket = wl_display_add_socket_auto(server->display);
+  if (server->socket == NULL) {
+    wlr_log(WLR_ERROR, "failed to create Wayland socket");
+    return 1;
+  }
+
+  setenv("WAYLAND_DISPLAY", server->socket, true);
+
+  // start!
+  if (!wlr_backend_start(server->backend)) {
+    wlr_log(WLR_ERROR, "failed to start backend");
+    return 1;
+  }
+
+  // start a shell
+  if (fork() == 0) {
+    execl("/bin/sh", "/bin/sh", NULL);
+  }
+  
+  wlr_log(WLR_INFO, "Server has been started on WAYLAND_DISPLAY=%s", server->socket);
+  wl_display_run(server->display);
+
+  return 0;
+}
+
+void sonde_server_destroy(struct sonde_server *server) {
+  wlr_allocator_destroy(server->allocator);
+  wlr_renderer_destroy(server->renderer);
+  wlr_backend_destroy(server->backend);
+  wl_display_destroy(server->display);
+}
