@@ -6,9 +6,9 @@ PKGS="wlroots-0.18" wayland-server xkbcommon
 CFLAGS_PKG_CONFIG!=$(PKG_CONFIG) --cflags $(PKGS)
 CFLAGS+=$(CFLAGS_PKG_CONFIG)
 LIBS!=$(PKG_CONFIG) --libs $(PKGS)
-SRCS=$(wildcard src/*.c)
-OBJS=$(patsubst src/%.c,bin/%.o,$(SRCS))
-HEADERS=$(wildcard src/*.h)
+SRCS:=$(wildcard src/*.c)
+OBJS:=$(patsubst src/%.c,bin/%.o,$(SRCS))
+HEADERS:=$(wildcard src/*.h)
 
 all: bin/sonde
 
@@ -21,7 +21,7 @@ bin:
 include/xdg-shell-protocol.h:
 	$(WAYLAND_SCANNER) server-header $(WAYLAND_PROTOCOLS)/stable/xdg-shell/xdg-shell.xml $@
 
-bin/%.o: src/%.c include/xdg-shell-protocol.h bin $(HEADERS)
+bin/%.o: src/%.c include/xdg-shell-protocol.h $(HEADERS) | bin
 	$(CC) -c $< -g -Werror $(CFLAGS) -DDEBUG_LOG -Iinclude -DWLR_USE_UNSTABLE -o $@
 
 bin/sonde: $(OBJS)
