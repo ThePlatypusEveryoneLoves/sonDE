@@ -1,6 +1,6 @@
 #include "outputs.h"
 
-void on_output_frame(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_output_frame) {
   struct sonde_output *sonde_output = wl_container_of(listener, sonde_output, frame);
   struct wlr_scene *scene = sonde_output->server->scene;
 
@@ -13,13 +13,13 @@ void on_output_frame(struct wl_listener *listener, void *data) {
   clock_gettime(CLOCK_MONOTONIC, &now);
   wlr_scene_output_send_frame_done(scene_output, &now);
 }
-void on_output_request_state(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_output_request_state) {
   struct sonde_output *sonde_output = wl_container_of(listener, sonde_output, request_state);
   const struct wlr_output_event_request_state *event = data;
   // commit the state again
   wlr_output_commit_state(sonde_output->output, event->state);
 }
-void on_output_destroy(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_output_destroy) {
   struct sonde_output *sonde_output = wl_container_of(listener, sonde_output, destroy);
 
   wl_list_remove(&sonde_output->frame.link);
@@ -29,7 +29,7 @@ void on_output_destroy(struct wl_listener *listener, void *data) {
   free(sonde_output);
 }
 
-void on_new_output(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_new_output) {
   sonde_server_t server = wl_container_of(listener, server, new_output);
   struct wlr_output *output = data;
 
@@ -58,13 +58,9 @@ void on_new_output(struct wl_listener *listener, void *data) {
   sonde_output->output = output;
   sonde_output->server = server;
 
-  sonde_output->frame.notify = on_output_frame;
-  sonde_output->request_state.notify = on_output_request_state;
-  sonde_output->destroy.notify = on_output_destroy;
-
-  wl_signal_add(&output->events.frame, &sonde_output->frame);
-  wl_signal_add(&output->events.request_state, &sonde_output->request_state);
-  wl_signal_add(&output->events.destroy, &sonde_output->destroy);
+  LISTEN(&output->events.frame, &sonde_output->frame, on_output_frame);
+  LISTEN(&output->events.request_state, &sonde_output->request_state, on_output_request_state);
+  LISTEN(&output->events.destroy, &sonde_output->destroy, on_output_destroy);
 
   wl_list_insert(&server->outputs, &sonde_output->link);
 
@@ -80,8 +76,8 @@ int sonde_outputs_initialize(sonde_server_t server) {
 
   // outputs
   wl_list_init(&server->outputs);
-  server->new_output.notify = on_new_output;
-  wl_signal_add(&server->backend->events.new_output, &server->new_output);
+  
+  LISTEN(&server->backend->events.new_output, &server->new_output, on_new_output);
 
   server->scene = wlr_scene_create();
   server->scene_layout = wlr_scene_attach_output_layout(server->scene, server->output_layout);
