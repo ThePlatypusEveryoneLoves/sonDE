@@ -2,6 +2,12 @@
 
 #include "common.h"
 
+enum sonde_cursor_mode {
+  SONDE_CURSOR_PASSTHROUGH,
+  SONDE_SERVER_MOVE_WINDOW,
+  SONDE_SERVER_RESIZE_WINDOW
+};
+
 struct sonde_server {
   struct wl_display *display;
   struct wlr_backend *backend;
@@ -28,6 +34,16 @@ struct sonde_server {
   struct wlr_seat *seat;
   struct wl_listener request_cursor;
   struct wl_listener request_set_selection;
+
+  // cursor
+  struct wlr_cursor *cursor;
+  enum sonde_cursor_mode cursor_mode;
+  struct wlr_xcursor_manager *cursor_manager;
+  struct wl_listener cursor_motion;
+  struct wl_listener cursor_motion_absolute;
+  struct wl_listener cursor_button;
+  struct wl_listener cursor_axis;
+  struct wl_listener cursor_frame;
   
   const char* socket;
 };

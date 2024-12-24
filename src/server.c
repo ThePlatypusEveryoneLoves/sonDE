@@ -1,4 +1,5 @@
 #include "server.h"
+#include "cursor.h"
 #include "outputs.h"
 #include "seat.h"
 #include "xdg-shell.h"
@@ -41,6 +42,10 @@ int sonde_server_create(sonde_server_t server) {
     return 1;
   }
 
+  if (sonde_cursor_initialize(server) != 0) {
+    return 1;
+  }
+
   if (sonde_seat_initialize(server) != 0) {
     return 1;
   }
@@ -73,6 +78,7 @@ void sonde_server_destroy(sonde_server_t server) {
   wl_display_destroy_clients(server->display);
   sonde_xdg_shell_destroy(server);
   sonde_outputs_destroy(server);
+  sonde_cursor_destroy(server);
   wlr_allocator_destroy(server->allocator);
   wlr_renderer_destroy(server->renderer);
   wlr_backend_destroy(server->backend);

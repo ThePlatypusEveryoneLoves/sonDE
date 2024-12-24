@@ -107,8 +107,9 @@ static void new_keyboard(sonde_server_t server, struct wlr_input_device *device)
 }
 
 static void new_pointer(sonde_server_t server, struct wlr_input_device *device) {
-  
-  
+  // attach pointer to server
+  // TODO: pointer config
+  wlr_cursor_attach_input_device(server->cursor, device);
 }
 
 WL_CALLBACK(on_new_input) {

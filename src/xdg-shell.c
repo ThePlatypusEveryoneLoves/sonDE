@@ -31,6 +31,25 @@ void sonde_toplevel_focus(struct sonde_toplevel *sonde_toplevel) {
     wlr_seat_keyboard_notify_enter(sonde_toplevel->server->seat, target_surface, keyboard->keycodes, keyboard->num_keycodes, &keyboard->modifiers);
 }
 
+struct sonde_toplevel *sonde_toplevel_at(sonde_server_t server, double lx,
+                                         double ly,
+                                         struct wlr_surface **surface,
+                                         double *sx, double *sy) {
+  struct wlr_scene_node *node = wlr_scene_node_at(&server->scene->tree.node, lx, ly, sx, sy);
+  // only looking for surface nodes
+  if (node == NULL || node->type != WLR_SCENE_NODE_BUFFER) return NULL;
+  // get surface from buffer
+  struct wlr_scene_buffer *scene_buffer = wlr_scene_buffer_from_node(node);
+  struct wlr_scene_surface *scene_surface = wlr_scene_surface_try_from_buffer(scene_buffer);
+  if (!scene_surface) return NULL;
+
+  if (surface != NULL) *surface = scene_surface->surface;
+
+  // find the root scene node (we set the data field on this)
+  struct wlr_scene_tree *tree = node->parent;
+  while (tree != NULL && tree->node.data == NULL) tree = tree->node.parent;
+  return tree == NULL ? NULL : tree->node.data;
+}
 
 WL_CALLBACK(on_toplevel_map) {
   struct sonde_toplevel *sonde_toplevel = wl_container_of(listener, sonde_toplevel, map);
@@ -98,7 +117,8 @@ WL_CALLBACK(on_new_toplevel) {
   sonde_toplevel->server = server;
   sonde_toplevel->toplevel = toplevel;
   sonde_toplevel->scene_tree = wlr_scene_xdg_surface_create(&server->scene->tree, toplevel->base);
-  sonde_toplevel->scene_tree->node.data = toplevel;
+  // set the data field on the scene tree node
+  sonde_toplevel->scene_tree->node.data = sonde_toplevel;
   // set the user data field to the scene tree so we can use in on_new_popup below
   toplevel->base->data = sonde_toplevel->scene_tree;
 

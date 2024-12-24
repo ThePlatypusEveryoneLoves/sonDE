@@ -32,3 +32,11 @@ int sonde_xdg_shell_initialize(sonde_server_t server);
 void sonde_xdg_shell_destroy(sonde_server_t server);
 
 void sonde_toplevel_focus(struct sonde_toplevel *toplevel);
+
+/// finds the toplevel and surface at position (lx, ly)
+/// returns the toplevel, sets surface to the corresponding surface,
+/// and sets sx and sy to the surface-local coordinates
+struct sonde_toplevel *sonde_toplevel_at(sonde_server_t server, double lx,
+                                         double ly,
+                                         struct wlr_surface **surface,
+                                         double *sx, double *sy);
