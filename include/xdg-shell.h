@@ -4,6 +4,7 @@
 
 struct sonde_toplevel {
   struct wl_list link;
+  
   sonde_server_t server;
   struct wlr_xdg_toplevel *toplevel;
   struct wlr_scene_tree *scene_tree;
@@ -29,3 +30,5 @@ struct sonde_popup {
 
 int sonde_xdg_shell_initialize(sonde_server_t server);
 void sonde_xdg_shell_destroy(sonde_server_t server);
+
+void sonde_toplevel_focus(struct sonde_toplevel *toplevel);

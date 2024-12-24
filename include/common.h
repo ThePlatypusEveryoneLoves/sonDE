@@ -29,6 +29,11 @@
 #define INIT_LOG() wlr_log_init(WLR_ERROR, NULL);
 #endif
 
-#define LISTEN(EVENT, LISTENER, CALLBACK) \
-  (LISTENER)->notify = CALLBACK; \
-  wl_signal_add((EVENT), (LISTENER)); 
+#define LISTEN(EVENT, LISTENER, CALLBACK)       \
+  do {                                          \
+    (LISTENER)->notify = CALLBACK;              \
+    wl_signal_add((EVENT), (LISTENER));         \
+  } while (false)
+
+#define WL_CALLBACK(NAME) \
+  static void NAME(struct wl_listener *listener, void *data)

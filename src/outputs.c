@@ -89,5 +89,5 @@ int sonde_outputs_initialize(sonde_server_t server) {
 }
 
 void sonde_outputs_destroy(sonde_server_t server) {
-  wlr_output_layout_destroy(server->output_layout);
+  wlr_scene_node_destroy(&server->scene->tree.node);
 }

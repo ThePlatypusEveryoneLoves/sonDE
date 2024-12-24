@@ -70,11 +70,12 @@ int sonde_server_start(sonde_server_t server) {
 }
 
 void sonde_server_destroy(sonde_server_t server) {
+  wl_display_destroy_clients(server->display);
   sonde_xdg_shell_destroy(server);
-  sonde_seat_destroy(server);
   sonde_outputs_destroy(server);
   wlr_allocator_destroy(server->allocator);
   wlr_renderer_destroy(server->renderer);
   wlr_backend_destroy(server->backend);
+  sonde_seat_destroy(server);
   wl_display_destroy(server->display);
 }

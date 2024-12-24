@@ -1,16 +1,46 @@
 #include <assert.h>
-#include <wayland-server-core.h>
 #include "xdg-shell.h"
 
-void on_toplevel_map(struct wl_listener *listener, void *data) {
+// move a toplevel to front
+void sonde_toplevel_focus(struct sonde_toplevel *sonde_toplevel) {
+  if (sonde_toplevel == NULL) return;
+
+  struct wlr_surface *current_surface = sonde_toplevel->server->seat->keyboard_state.focused_surface;
+  struct wlr_surface *target_surface = sonde_toplevel->toplevel->base->surface;
+
+  if (current_surface == target_surface) return;
+
+  if (current_surface != NULL) {
+    // deactivate focus
+    struct wlr_xdg_toplevel *current_toplevel = wlr_xdg_toplevel_try_from_wlr_surface(current_surface);
+    if (current_toplevel != NULL) wlr_xdg_toplevel_set_activated(current_toplevel, false);
+  }
+
+  // move to front
+  wlr_scene_node_raise_to_top(&sonde_toplevel->scene_tree->node);
+  // move to front of server.toplevels
+  wl_list_remove(&sonde_toplevel->link);
+  wl_list_insert(&sonde_toplevel->server->toplevels, &sonde_toplevel->link);
+
+  // activate
+  wlr_xdg_toplevel_set_activated(sonde_toplevel->toplevel, true);
+
+  // move keyboard focus
+  struct wlr_keyboard *keyboard = wlr_seat_get_keyboard(sonde_toplevel->server->seat);
+  if (keyboard != NULL)
+    wlr_seat_keyboard_notify_enter(sonde_toplevel->server->seat, target_surface, keyboard->keycodes, keyboard->num_keycodes, &keyboard->modifiers);
+}
+
+
+WL_CALLBACK(on_toplevel_map) {
   struct sonde_toplevel *sonde_toplevel = wl_container_of(listener, sonde_toplevel, map);
 
   wl_list_insert(&sonde_toplevel->server->toplevels, &sonde_toplevel->link);
 
-  // TODO: keyboard focus
+  sonde_toplevel_focus(sonde_toplevel);
 }
 
-void on_toplevel_unmap(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_toplevel_unmap) {
   struct sonde_toplevel *sonde_toplevel = wl_container_of(listener, sonde_toplevel, unmap);
 
   // TODO: reset cursor mode if this was being grabbed
@@ -18,7 +48,7 @@ void on_toplevel_unmap(struct wl_listener *listener, void *data) {
   wl_list_remove(&sonde_toplevel->link);
 }
 
-void on_toplevel_commit(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_toplevel_commit) {
   struct sonde_toplevel *sonde_toplevel = wl_container_of(listener, sonde_toplevel, commit);
 
   if (sonde_toplevel->toplevel->base->initial_commit) {
@@ -27,7 +57,7 @@ void on_toplevel_commit(struct wl_listener *listener, void *data) {
   }
 }
 
-void on_toplevel_destroy(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_toplevel_destroy) {
   struct sonde_toplevel *sonde_toplevel = wl_container_of(listener, sonde_toplevel, destroy);
 
   wl_list_remove(&sonde_toplevel->map.link);
@@ -42,23 +72,23 @@ void on_toplevel_destroy(struct wl_listener *listener, void *data) {
   free(sonde_toplevel);
 }
 
-void on_toplevel_request_move(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_toplevel_request_move) {
   struct sonde_toplevel *sonde_toplevel = wl_container_of(listener, sonde_toplevel, request_move);
 }
 
-void on_toplevel_request_resize(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_toplevel_request_resize) {
   struct sonde_toplevel *sonde_toplevel = wl_container_of(listener, sonde_toplevel, request_resize);
 }
 
-void on_toplevel_request_maximize(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_toplevel_request_maximize) {
   struct sonde_toplevel *sonde_toplevel = wl_container_of(listener, sonde_toplevel, request_maximize);
 }
 
-void on_toplevel_request_fullscreen(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_toplevel_request_fullscreen) {
   struct sonde_toplevel *sonde_toplevel = wl_container_of(listener, sonde_toplevel, request_fullscreen);
 }
 
-void on_new_toplevel(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_new_toplevel) {
   sonde_server_t server = wl_container_of(listener, server, new_toplevel);
 
   struct wlr_xdg_toplevel *toplevel = data;
@@ -73,26 +103,17 @@ void on_new_toplevel(struct wl_listener *listener, void *data) {
   toplevel->base->data = sonde_toplevel->scene_tree;
 
   // event listeners
-  sonde_toplevel->map.notify = on_toplevel_map;
-  sonde_toplevel->unmap.notify = on_toplevel_unmap;
-  sonde_toplevel->commit.notify = on_toplevel_commit;
-  sonde_toplevel->destroy.notify = on_toplevel_destroy;
-  sonde_toplevel->request_move.notify = on_toplevel_request_move;
-  sonde_toplevel->request_resize.notify = on_toplevel_request_resize;
-  sonde_toplevel->request_maximize.notify = on_toplevel_request_maximize;
-  sonde_toplevel->request_fullscreen.notify = on_toplevel_request_fullscreen;
-
-  wl_signal_add(&toplevel->base->surface->events.map, &sonde_toplevel->map);
-  wl_signal_add(&toplevel->base->surface->events.unmap, &sonde_toplevel->unmap);
-  wl_signal_add(&toplevel->base->surface->events.commit, &sonde_toplevel->commit);
-  wl_signal_add(&toplevel->events.destroy, &sonde_toplevel->destroy);
-  wl_signal_add(&toplevel->events.request_move, &sonde_toplevel->request_move);
-  wl_signal_add(&toplevel->events.request_resize, &sonde_toplevel->request_resize);
-  wl_signal_add(&toplevel->events.request_maximize, &sonde_toplevel->request_maximize);
-  wl_signal_add(&toplevel->events.request_fullscreen, &sonde_toplevel->request_fullscreen);
+  LISTEN(&toplevel->base->surface->events.map, &sonde_toplevel->map, on_toplevel_map);
+  LISTEN(&toplevel->base->surface->events.unmap, &sonde_toplevel->unmap, on_toplevel_unmap);
+  LISTEN(&toplevel->base->surface->events.commit, &sonde_toplevel->commit, on_toplevel_commit);
+  LISTEN(&toplevel->events.destroy, &sonde_toplevel->destroy, on_toplevel_destroy);
+  LISTEN(&toplevel->events.request_move, &sonde_toplevel->request_move, on_toplevel_request_move);
+  LISTEN(&toplevel->events.request_resize, &sonde_toplevel->request_resize, on_toplevel_request_resize);
+  LISTEN(&toplevel->events.request_maximize, &sonde_toplevel->request_maximize, on_toplevel_request_maximize);
+  LISTEN(&toplevel->events.request_fullscreen, &sonde_toplevel->request_fullscreen, on_toplevel_request_fullscreen);
 }
 
-void on_popup_commit(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_popup_commit) {
   struct sonde_popup *sonde_popup = wl_container_of(listener, sonde_popup, commit);
 
   if (sonde_popup->popup->base->initial_commit) {
@@ -101,7 +122,7 @@ void on_popup_commit(struct wl_listener *listener, void *data) {
   }
 }
 
-void on_popup_destroy(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_popup_destroy) {
   struct sonde_popup *sonde_popup = wl_container_of(listener, sonde_popup, destroy);
 
   wl_list_remove(&sonde_popup->commit.link);
@@ -110,7 +131,7 @@ void on_popup_destroy(struct wl_listener *listener, void *data) {
   free(sonde_popup);
 }
 
-void on_new_popup(struct wl_listener *listener, void *data) {
+WL_CALLBACK(on_new_popup) {
   sonde_server_t server = wl_container_of(listener, server, new_popup);
 
   struct wlr_xdg_popup *popup = data;
@@ -126,11 +147,8 @@ void on_new_popup(struct wl_listener *listener, void *data) {
   struct wlr_scene_tree *parent_tree = parent->data;
   popup->base->data = wlr_scene_xdg_surface_create(parent_tree, popup->base);
 
-  sonde_popup->commit.notify = on_popup_commit;
-  sonde_popup->destroy.notify = on_popup_destroy;
-
-  wl_signal_add(&popup->base->surface->events.commit, &sonde_popup->commit);
-  wl_signal_add(&popup->base->surface->events.destroy, &sonde_popup->destroy);
+  LISTEN(&popup->base->surface->events.commit, &sonde_popup->commit, on_popup_commit);
+  LISTEN(&popup->base->surface->events.destroy, &sonde_popup->destroy, on_popup_destroy);
 }
 
 
@@ -143,11 +161,8 @@ int sonde_xdg_shell_initialize(sonde_server_t server) {
     return 1;
   }
   
-  server->new_toplevel.notify = on_new_toplevel;
-  server->new_popup.notify = on_new_popup;
-
-  wl_signal_add(&server->xdg_shell->events.new_toplevel, &server->new_toplevel);
-  wl_signal_add(&server->xdg_shell->events.new_popup, &server->new_popup);
+  LISTEN(&server->xdg_shell->events.new_toplevel, &server->new_toplevel, on_new_toplevel);
+  LISTEN(&server->xdg_shell->events.new_popup, &server->new_popup, on_new_popup);
 
   return 0;
 }
