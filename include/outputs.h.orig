@@ -13,7 +13,19 @@ struct sonde_output {
   struct wl_listener destroy;
 };
 
+<<<<<<< Updated upstream
 int sonde_outputs_initialize(sonde_server_t server);
 void sonde_outputs_destroy(sonde_server_t server);
 
 struct wlr_output_mode* sonde_output_mode_or_preferred(struct wlr_output* output, struct sonde_config config);
+=======
+int sonde_outputs_initialize(struct sonde_server *server);
+void sonde_outputs_destroy(struct sonde_server *server);
+struct wlr_output_mode* sonde_get_output_or_preferred(struct wlr_output* output);
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
