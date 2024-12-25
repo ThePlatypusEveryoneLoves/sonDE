@@ -16,4 +16,4 @@ struct sonde_output {
 int sonde_outputs_initialize(sonde_server_t server);
 void sonde_outputs_destroy(sonde_server_t server);
 
-struct wlr_output_mode* sonde_output_mode_or_preferred(struct wlr_output* output, struct sonde_config config);
+struct wlr_output_mode* sonde_get_output_or_preferred(struct wlr_output* output, struct sonde_config config);

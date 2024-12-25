@@ -51,7 +51,11 @@ WL_CALLBACK(on_new_output) {
   // mode is resolution and refresh rate
   // set mode to output's perferred if needed
   // TODO: add output configuration
+
+  //for whenever we add a config file:
   // struct wlr_output_mode *mode = sonde_get_output_or_preferred(output);
+
+  //Use this while we don't
   struct wlr_output_mode *mode = wlr_output_preferred_mode(output);
   if (mode != NULL) {
     wlr_output_state_set_mode(&state, mode);
@@ -102,8 +106,8 @@ void sonde_outputs_destroy(sonde_server_t server) {
 }
 
 struct wlr_output_mode *
-sonde_output_mode_or_preferred(struct wlr_output *output,
-                               struct sonde_config config) {
+sonde_get_output_or_preferred(struct wlr_output *output,
+                              struct sonde_config config) {
   struct sonde_screen *screen_config = NULL;
   uint32_t i;
   for (i = 0; i < config.screencount; i++) {
