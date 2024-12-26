@@ -1,6 +1,8 @@
 #pragma once
 
 #include "common.h"
+#include "array.h"
+#include <lua.h>
 
 struct sonde_screen_config {
   uint32_t width, height;
@@ -16,21 +18,15 @@ struct sonde_keyboard_config {
 };
 
 struct sonde_config {
-  struct sonde_screen_config* screens;
-  uint32_t num_screens;
+  ARRAY(struct sonde_screen_config) screens;
+  ARRAY(struct sonde_keyboard_config) keyboards;
 
-  struct sonde_keyboard_config *keyboards;
-  uint32_t num_keyboards;
+  lua_State *lua_state;
 };
 
 
-/// initialize a sonde_config struct to defaults
-void sonde_config_init_defaults(struct sonde_config *config);
+/// initialize a sonde_config struct to defaults, and instantiate lua
+void sonde_config_init(struct sonde_config *config);
 
-#define SONDE_CONFIG_FIND_DEVICE(CONFIG, ARRAY_NAME, DEVICE_NAME, DEVICE_TYPE, OUT_NAME) \
-  struct DEVICE_TYPE *OUT_NAME = NULL;                                  \
-  for (uint32_t i = 0; i < (CONFIG)->num_ ## ARRAY_NAME; i++) {         \
-    if (strcmp((DEVICE_NAME), (CONFIG)->ARRAY_NAME[i].name) == 0) {     \
-      OUT_NAME = &(CONFIG)->ARRAY_NAME[i];                              \
-    }                                                                   \
-  }
+/// free config and close lua
+void sonde_config_destroy(struct sonde_config *config);

@@ -2,7 +2,7 @@ PKG_CONFIG?=pkg-config
 WAYLAND_PROTOCOLS!=$(PKG_CONFIG) --variable=pkgdatadir wayland-protocols
 WAYLAND_SCANNER!=$(PKG_CONFIG) --variable=wayland_scanner wayland-scanner
 
-PKGS="wlroots-0.18" wayland-server xkbcommon
+PKGS="wlroots-0.18" wayland-server xkbcommon lua
 CFLAGS_PKG_CONFIG!=$(PKG_CONFIG) --cflags $(PKGS)
 CFLAGS+=$(CFLAGS_PKG_CONFIG)
 LIBS!=$(PKG_CONFIG) --libs $(PKGS)

@@ -102,7 +102,14 @@ void sonde_outputs_destroy(sonde_server_t server) {
 struct wlr_output_mode *
 sonde_get_output_or_preferred(struct wlr_output *output,
                               struct sonde_config *config) {
-  SONDE_CONFIG_FIND_DEVICE(config, screens, output->name, sonde_screen_config, screen_config);
+  struct sonde_screen_config *screen_config = NULL;
+  struct sonde_screen_config *item = NULL;
+  ARRAY_FOREACH(&config->screens, item) {
+    if (strcmp(output->name, item->name) == 0) {
+      screen_config = item;
+      break;
+    }
+  }
   if (!screen_config) {
     return wlr_output_preferred_mode(output);
   }

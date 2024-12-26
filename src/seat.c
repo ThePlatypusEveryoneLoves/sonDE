@@ -87,7 +87,15 @@ static void new_keyboard(sonde_server_t server, struct wlr_input_device *device)
 
   // apply XKB keymap
 
-  SONDE_CONFIG_FIND_DEVICE(&server->config, keyboards, keyboard->base.name, sonde_keyboard_config, kbd_config);
+  struct sonde_keyboard_config *kbd_config = NULL;
+  struct sonde_keyboard_config *item = NULL;
+  ARRAY_FOREACH(&server->config.keyboards, item) {
+    if (strcmp(keyboard->base.name, item->name) == 0) {
+      kbd_config = item;
+      break;
+    }
+  }
+
   struct xkb_rule_names *keymap_config = kbd_config == NULL ? NULL : &kbd_config->keymap;
 
   struct xkb_context *context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
