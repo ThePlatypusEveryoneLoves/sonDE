@@ -8,7 +8,7 @@ CFLAGS+=$(CFLAGS_PKG_CONFIG)
 LIBS!=$(PKG_CONFIG) --libs $(PKGS)
 SRCS:=$(wildcard src/*.c)
 OBJS:=$(patsubst src/%.c,bin/%.o,$(SRCS))
-HEADERS:=$(wildcard src/*.h)
+HEADERS:=$(wildcard include/*.h)
 
 all: bin/sonde
 
