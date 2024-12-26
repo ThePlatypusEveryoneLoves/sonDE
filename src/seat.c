@@ -86,16 +86,22 @@ static void new_keyboard(sonde_server_t server, struct wlr_input_device *device)
   sonde_keyboard->keyboard = keyboard;
 
   // apply XKB keymap
-  // TODO: keyboard configuration
+
+  SONDE_CONFIG_FIND_DEVICE(&server->config, keyboards, keyboard->base.name, sonde_keyboard_config, kbd_config);
+  struct xkb_rule_names *keymap_config = kbd_config == NULL ? NULL : &kbd_config->keymap;
 
   struct xkb_context *context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
-  struct xkb_keymap *keymap = xkb_keymap_new_from_names(context, NULL, XKB_KEYMAP_COMPILE_NO_FLAGS);
+  struct xkb_keymap *keymap = xkb_keymap_new_from_names(context, keymap_config, XKB_KEYMAP_COMPILE_NO_FLAGS);
   wlr_keyboard_set_keymap(keyboard, keymap);
   xkb_keymap_unref(keymap);
   xkb_context_unref(context);
 
-  // TODO: repeat config
-  wlr_keyboard_set_repeat_info(keyboard, 30, 200);
+  if (kbd_config == NULL) {
+    // default repeat rate
+    wlr_keyboard_set_repeat_info(keyboard, 30, 200);
+  } else {
+    wlr_keyboard_set_repeat_info(keyboard, kbd_config->repeat_rate, kbd_config->repeat_delay);
+  }
 
   // events
   LISTEN(&keyboard->events.modifiers, &sonde_keyboard->modifiers, on_keyboard_modifiers);

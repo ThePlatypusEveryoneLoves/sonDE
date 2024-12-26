@@ -1,6 +1,5 @@
 #include "outputs.h"
 #include "common.h"
-#include <stdlib.h>
 
 WL_CALLBACK(on_output_frame) {
   struct sonde_output *sonde_output =
@@ -50,13 +49,8 @@ WL_CALLBACK(on_new_output) {
 
   // mode is resolution and refresh rate
   // set mode to output's perferred if needed
-  // TODO: add output configuration
 
-  //for whenever we add a config file:
-  // struct wlr_output_mode *mode = sonde_get_output_or_preferred(output);
-
-  //Use this while we don't
-  struct wlr_output_mode *mode = wlr_output_preferred_mode(output);
+  struct wlr_output_mode *mode = sonde_get_output_or_preferred(output, &server->config);
   if (mode != NULL) {
     wlr_output_state_set_mode(&state, mode);
   }
@@ -107,14 +101,8 @@ void sonde_outputs_destroy(sonde_server_t server) {
 
 struct wlr_output_mode *
 sonde_get_output_or_preferred(struct wlr_output *output,
-                              struct sonde_config config) {
-  struct sonde_screen *screen_config = NULL;
-  uint32_t i;
-  for (i = 0; i < config.screencount; i++) {
-    if (strcmp(output->name, config.screens[i].name) == 0) {
-      screen_config = &config.screens[i];
-    }
-  }
+                              struct sonde_config *config) {
+  SONDE_CONFIG_FIND_DEVICE(config, screens, output->name, sonde_screen_config, screen_config);
   if (!screen_config) {
     return wlr_output_preferred_mode(output);
   }
@@ -125,10 +113,8 @@ sonde_get_output_or_preferred(struct wlr_output *output,
     if (mode->width == screen_config->width &&
         mode->height == screen_config->height &&
         abs(mode->refresh - mhz) <= 100 /*tolerance*/) {
-      goto found;
+      return mode;
     }
   }
   return wlr_output_preferred_mode(output);
-found:
-  return mode;
 }

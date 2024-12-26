@@ -23,7 +23,7 @@
 #include <wlr/types/wlr_server_decoration.h>
 #include <wlr/util/log.h>
 #include <xkbcommon/xkbcommon.h>
-
+#include <stdint.h>
 
 #ifdef DEBUG_LOG
 #define INIT_LOG() wlr_log_init(WLR_DEBUG, NULL);

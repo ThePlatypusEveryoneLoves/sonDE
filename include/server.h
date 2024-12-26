@@ -1,7 +1,7 @@
 #pragma once
 
 #include "common.h"
-#include "wlr/types/wlr_xdg_decoration_v1.h"
+#include "config.h"
 
 enum sonde_cursor_mode {
   SONDE_CURSOR_PASSTHROUGH,
@@ -15,6 +15,8 @@ struct sonde_server {
   struct wlr_backend *backend;
   struct wlr_renderer *renderer;
   struct wlr_allocator *allocator;
+
+  struct sonde_config config;
 
   // outputs
   struct wlr_output_layout *output_layout;
