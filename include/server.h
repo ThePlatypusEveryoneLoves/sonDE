@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "wlr/types/wlr_xdg_decoration_v1.h"
 
 enum sonde_cursor_mode {
   SONDE_CURSOR_PASSTHROUGH,
@@ -10,7 +11,7 @@ enum sonde_cursor_mode {
 
 struct sonde_server {
   struct wl_display *display;
-  struct wl_event_loop* event_loop;
+  struct wl_event_loop *event_loop;
   struct wlr_backend *backend;
   struct wlr_renderer *renderer;
   struct wlr_allocator *allocator;
@@ -29,6 +30,10 @@ struct sonde_server {
   struct wl_listener new_popup;
   struct sonde_toplevel *grabbed_toplevel;
 
+  // xdg-shell decoration
+  struct wlr_xdg_decoration_manager_v1 *decoration_manager;
+  struct wlr_server_decoration_manager *server_decoration_manager;
+
   // seat
   struct wl_list keyboards;
   struct wl_listener new_input;
@@ -45,8 +50,8 @@ struct sonde_server {
   struct wl_listener cursor_button;
   struct wl_listener cursor_axis;
   struct wl_listener cursor_frame;
-  
-  const char* socket;
+
+  const char *socket;
 };
 
 typedef struct sonde_server *sonde_server_t;

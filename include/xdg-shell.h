@@ -1,6 +1,7 @@
 #pragma once
 
 #include "server.h"
+#include "common.h"
 
 struct sonde_toplevel {
   struct wl_list link;
