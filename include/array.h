@@ -28,3 +28,21 @@
     for (ITEM = &(ARRAY)->items[i];                                     \
          should_continue;                                               \
          should_continue = !should_continue)
+
+#define ARRAY_REALLOC(ARRAY, NEW_CAPACITY, ITEM_SIZE)                   \
+  do {                                                                  \
+    (ARRAY)->items = realloc((ARRAY)->items, (NEW_CAPACITY) * (ITEM_SIZE)); \
+    (ARRAY)->capacity = (NEW_CAPACITY);                                 \
+    /* update length if it needs to decrease */                         \
+    if ((ARRAY)->length > (ARRAY)->capacity) (ARRAY)->length = (ARRAY)->capacity; \
+  } while(false)
+
+#define ARRAY_APPEND(ARRAY, ITEM)                                       \
+  do {                                                                  \
+    if ((ARRAY)->length == (ARRAY)->capacity) {                         \
+      /* double the capacity */                                         \
+      ARRAY_REALLOC(ARRAY, (ARRAY)->capacity == 0 ? 8 : (ARRAY)->capacity * 2, sizeof(ITEM)); \
+    }                                                                   \
+    /* append an item */                                                \
+    (ARRAY)->items[(ARRAY)->length++] = (ITEM);                         \
+  } while(false)
