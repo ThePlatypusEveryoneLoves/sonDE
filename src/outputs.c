@@ -114,7 +114,7 @@ sonde_get_output_or_preferred(struct wlr_output *output,
     return wlr_output_preferred_mode(output);
   }
   /*Refresh rates from hertz to millihertz (not megahertz)*/
-  int mhz = (int)round(screen_config->refresh_rate * 1000);
+  int mhz = (int)roundf(screen_config->refresh_rate * 1000);
   struct wlr_output_mode *mode;
   wl_list_for_each(mode, &output->modes, link) {
     if (mode->width == screen_config->width &&

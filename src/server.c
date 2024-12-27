@@ -2,12 +2,23 @@
 #include "cursor.h"
 #include "outputs.h"
 #include "seat.h"
+#include "config.h"
 #include "wlr/util/log.h"
 #include "xdg-shell.h"
 #include <unistd.h>
 #include <wayland-server-core.h>
 
 int sonde_server_create(sonde_server_t server) {
+  if (sonde_config_initialize(&server->config) != 0) {
+    wlr_log(WLR_ERROR, "failed to initialize config");
+    return 1;
+  }
+
+  if (sonde_config_reload(&server->config) != 0) {
+    wlr_log(WLR_ERROR, "failed to execute lua config");
+    return 1;
+  }
+  
   server->display = wl_display_create();
   server->event_loop = wl_display_get_event_loop(server->display);
   // backend - abstracts input/output - allows running in existing X/Wayland sessiosn
@@ -90,4 +101,6 @@ void sonde_server_destroy(sonde_server_t server) {
   wlr_backend_destroy(server->backend);
   sonde_seat_destroy(server);
   wl_display_destroy(server->display);
+
+  sonde_config_destroy(&server->config);
 }
