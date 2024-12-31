@@ -32,6 +32,7 @@ WL_CALLBACK(on_toplevel_commit) {
     // configuration for the first commit  (we could change geometry here)
     wlr_xdg_surface_schedule_configure(sonde_xdg_view->toplevel->base);
     /*Let the client decide the size that they want to be*/
+    // TODO: tiling stuff, prespecified size
     wlr_xdg_toplevel_set_size(sonde_xdg_view->toplevel, 0, 0);
   }
 }
@@ -167,14 +168,6 @@ int sonde_xdg_shell_initialize(sonde_server_t server) {
          on_new_toplevel);
   LISTEN(&server->xdg_shell->events.new_popup, &server->new_popup,
          on_new_popup);
-
-  server->server_decoration_manager =
-      wlr_server_decoration_manager_create(server->display);
-  wlr_server_decoration_manager_set_default_mode(
-      server->server_decoration_manager,
-      WLR_SERVER_DECORATION_MANAGER_MODE_SERVER);
-  server->decoration_manager =
-      wlr_xdg_decoration_manager_v1_create(server->display);
 
   return 0;
 }

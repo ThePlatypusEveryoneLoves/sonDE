@@ -37,7 +37,8 @@ struct sonde_server {
 
   // xdg-shell decoration
   struct wlr_xdg_decoration_manager_v1 *decoration_manager;
-  struct wlr_server_decoration_manager *server_decoration_manager;
+  struct wl_listener new_toplevel_decoration;
+  //struct wlr_server_decoration_manager *kde_decoration_manager;
 
   // seat
   struct wl_list keyboards;

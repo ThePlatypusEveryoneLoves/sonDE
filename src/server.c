@@ -5,8 +5,8 @@
 #include "config.h"
 #include "wlr/util/log.h"
 #include "xdg-shell.h"
+#include "decoration-manager.h"
 #include <unistd.h>
-#include <wayland-server-core.h>
 
 int sonde_server_create(sonde_server_t server) {
   if (sonde_config_initialize(&server->config) != 0) {
@@ -57,6 +57,11 @@ int sonde_server_create(sonde_server_t server) {
     return 1;
   }
 
+  if (sonde_decoration_manager_initialize(server) != 0) {
+    wlr_log(WLR_ERROR, "failed to initialize XDG decoration manager");
+    return 1;
+  }
+
   if (sonde_cursor_initialize(server) != 0) {
     wlr_log(WLR_ERROR, "Failed to initialize cursor");
     return 1;
@@ -93,6 +98,7 @@ int sonde_server_start(sonde_server_t server) {
 
 void sonde_server_destroy(sonde_server_t server) {
   wl_display_destroy_clients(server->display);
+  sonde_decoration_manager_destroy(server);
   sonde_xdg_shell_destroy(server);
   sonde_outputs_destroy(server);
   sonde_cursor_destroy(server);
