@@ -25,9 +25,9 @@ static bool handle_wm_keybinding(sonde_server_t server, xkb_keysym_t key) {
     break;
   case XKB_KEY_Tab:
     // get next toplevel
-    if (wl_list_length(&server->toplevels) < 2) break;
+    if (wl_list_length(&server->views) < 2) break;
 
-    sonde_view_t next_view = wl_container_of(server->toplevels.prev, next_view, link);
+    sonde_view_t next_view = wl_container_of(server->views.prev, next_view, link);
     sonde_view_focus(next_view);
     break;
   default:

@@ -8,7 +8,7 @@ WL_CALLBACK(on_toplevel_map) {
       wl_container_of(listener, sonde_view, map);
 
   // insert into server toplevels list
-  wl_list_insert(&sonde_view->server->toplevels,
+  wl_list_insert(&sonde_view->server->views,
                  &sonde_view->link);
 
   sonde_view_focus(sonde_view);
@@ -156,7 +156,7 @@ WL_CALLBACK(on_new_popup) {
 
 int sonde_xdg_shell_initialize(sonde_server_t server) {
   // XDG Shell
-  wl_list_init(&server->toplevels);
+  wl_list_init(&server->views);
   server->xdg_shell = wlr_xdg_shell_create(server->display, 3);
   if (server->xdg_shell == NULL) {
     wlr_log(WLR_ERROR, "failed to create xdg-shell");

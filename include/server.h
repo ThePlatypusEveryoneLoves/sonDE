@@ -25,12 +25,15 @@ struct sonde_server {
   struct wlr_scene *scene;
   struct wlr_scene_output_layout *scene_layout;
 
+  // views
+  struct wl_list views;
+
   // xdg-shell
-  struct wl_list toplevels;
   struct wlr_xdg_shell *xdg_shell;
   struct wl_listener new_toplevel;
   struct wl_listener new_popup;
-  struct sonde_toplevel *grabbed_toplevel;
+
+  // TODO: xwayland-shell
 
   // xdg-shell decoration
   struct wlr_xdg_decoration_manager_v1 *decoration_manager;

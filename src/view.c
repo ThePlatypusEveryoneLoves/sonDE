@@ -51,7 +51,7 @@ void sonde_view_focus(sonde_view_t sonde_view) {
   wlr_scene_node_raise_to_top(&sonde_view->scene_tree->node);
   // move to front of server.toplevels
   wl_list_remove(&sonde_view->link);
-  wl_list_insert(&sonde_view->server->toplevels,
+  wl_list_insert(&sonde_view->server->views,
                  &sonde_view->link);
 
   // activate
