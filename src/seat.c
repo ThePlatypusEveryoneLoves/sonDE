@@ -27,8 +27,8 @@ static bool handle_wm_keybinding(sonde_server_t server, xkb_keysym_t key) {
     // get next toplevel
     if (wl_list_length(&server->toplevels) < 2) break;
 
-    struct sonde_toplevel *next_toplevel = wl_container_of(server->toplevels.prev, next_toplevel, link);
-    sonde_toplevel_focus(next_toplevel);
+    sonde_view_t next_view = wl_container_of(server->toplevels.prev, next_view, link);
+    sonde_view_focus(next_view);
     break;
   default:
     return false;

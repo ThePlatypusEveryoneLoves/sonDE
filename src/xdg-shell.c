@@ -1,85 +1,22 @@
 #include "xdg-shell.h"
 #include "common.h"
 #include "view.h"
-#include "wlr/types/wlr_xdg_decoration_v1.h"
 #include <assert.h>
-// move a toplevel to front
-void sonde_xdg_view_focus(struct sonde_xdg_view *sonde_xdg_view) {
-  if (sonde_xdg_view == NULL)
-    return;
-
-  struct wlr_surface *current_surface =
-      sonde_xdg_view->base.server->seat->keyboard_state.focused_surface;
-  struct wlr_surface *target_surface = sonde_xdg_view->toplevel->base->surface;
-
-  if (current_surface == target_surface)
-    return;
-
-  if (current_surface != NULL) {
-    // deactivate focus
-    struct wlr_xdg_toplevel *current_toplevel =
-        wlr_xdg_toplevel_try_from_wlr_surface(current_surface);
-    if (current_toplevel != NULL)
-      wlr_xdg_toplevel_set_activated(current_toplevel, false);
-  }
-
-  // move to front
-  wlr_scene_node_raise_to_top(&sonde_xdg_view->base.scene_tree->node);
-  // move to front of server.toplevels
-  wl_list_remove(&sonde_xdg_view->base.link);
-  wl_list_insert(&sonde_xdg_view->base.server->toplevels,
-                 &sonde_xdg_view->base.link);
-
-  // activate
-  wlr_xdg_toplevel_set_activated(sonde_xdg_view->toplevel, true);
-
-  // move keyboard focus
-  struct wlr_keyboard *keyboard =
-      wlr_seat_get_keyboard(sonde_xdg_view->base.server->seat);
-  if (keyboard != NULL)
-    wlr_seat_keyboard_notify_enter(
-        sonde_xdg_view->base.server->seat, target_surface, keyboard->keycodes,
-        keyboard->num_keycodes, &keyboard->modifiers);
-}
-
-struct sonde_xdg_view *sonde_xdg_view_at(sonde_server_t server, double lx,
-                                         double ly,
-                                         struct wlr_surface **surface,
-                                         double *sx, double *sy) {
-  struct wlr_scene_node *node =
-      wlr_scene_node_at(&server->scene->tree.node, lx, ly, sx, sy);
-  // only looking for surface nodes
-  if (node == NULL || node->type != WLR_SCENE_NODE_BUFFER)
-    return NULL;
-  // get surface from buffer
-  struct wlr_scene_buffer *scene_buffer = wlr_scene_buffer_from_node(node);
-  struct wlr_scene_surface *scene_surface =
-      wlr_scene_surface_try_from_buffer(scene_buffer);
-  if (!scene_surface)
-    return NULL;
-
-  if (surface != NULL)
-    *surface = scene_surface->surface;
-
-  // find the root scene node (we set the data field on this)
-  struct wlr_scene_tree *tree = node->parent;
-  while (tree != NULL && tree->node.data == NULL)
-    tree = tree->node.parent;
-  return tree == NULL ? NULL : tree->node.data;
-}
 
 WL_CALLBACK(on_toplevel_map) {
-  struct sonde_xdg_view *sonde_xdg_view =
-      wl_container_of(listener, sonde_xdg_view, map);
+  sonde_view_t sonde_view =
+      wl_container_of(listener, sonde_view, map);
 
-  wl_list_insert(&sonde_xdg_view->base.server->toplevels,
-                 &sonde_xdg_view->base.link);
+  // insert into server toplevels list
+  wl_list_insert(&sonde_view->server->toplevels,
+                 &sonde_view->link);
 
-  sonde_xdg_view_focus(sonde_xdg_view);
+  sonde_view_focus(sonde_view);
 }
 
 WL_CALLBACK(on_toplevel_unmap) {
-  struct sonde_view *sonde_view = wl_container_of(listener, sonde_view, unmap);
+  sonde_view_t sonde_view =
+    wl_container_of(listener, sonde_view, unmap);
 
   // TODO: reset cursor mode if this was being grabbed
 
@@ -87,8 +24,9 @@ WL_CALLBACK(on_toplevel_unmap) {
 }
 
 WL_CALLBACK(on_toplevel_commit) {
-  struct sonde_xdg_view *sonde_xdg_view = wl_container_of(
-      wl_container_of(listener, sonde_view, commit), sonde_xdg_view, base);
+  sonde_view_t sonde_view =
+    wl_container_of(listener, sonde_view, commit);
+  sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(sonde_view);
 
   if (sonde_xdg_view->toplevel->base->initial_commit) {
     // configuration for the first commit  (we could change geometry here)
@@ -99,7 +37,9 @@ WL_CALLBACK(on_toplevel_commit) {
 }
 
 WL_CALLBACK(on_toplevel_destroy) {
-  struct sonde_view *sonde_view = wl_container_of(listener, sonde_view, unmap);
+  sonde_view_t sonde_view =
+    wl_container_of(listener, sonde_view, destroy);
+  sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(sonde_view);
 
   wl_list_remove(&sonde_view->map.link);
   wl_list_remove(&sonde_view->unmap.link);
@@ -108,29 +48,29 @@ WL_CALLBACK(on_toplevel_destroy) {
   wl_list_remove(&sonde_view->request_move.link);
   wl_list_remove(&sonde_view->request_resize.link);
   wl_list_remove(&sonde_view->request_maximize.link);
-  wl_list_remove(&sonde_view->request_fullsize.link);
+  wl_list_remove(&sonde_view->request_fullscreen.link);
 
   free(sonde_xdg_view);
 }
 
 WL_CALLBACK(on_toplevel_request_move) {
-  struct sonde_xdg_view *sonde_xdg_view =
-      wl_container_of(listener, sonde_xdg_view, request_move);
+  sonde_view_t sonde_view =
+      wl_container_of(listener, sonde_view, request_move);
 }
 
 WL_CALLBACK(on_toplevel_request_resize) {
-  struct sonde_xdg_view *sonde_xdg_view =
-      wl_container_of(listener, sonde_xdg_view, request_resize);
+  sonde_view_t sonde_view =
+      wl_container_of(listener, sonde_view, request_resize);
 }
 
 WL_CALLBACK(on_toplevel_request_maximize) {
-  struct sonde_xdg_view *sonde_xdg_view =
-      wl_container_of(listener, sonde_xdg_view, request_maximize);
+  sonde_view_t sonde_view =
+    wl_container_of(listener, sonde_view, request_maximize);
 }
 
 WL_CALLBACK(on_toplevel_request_fullscreen) {
-  struct sonde_xdg_view *sonde_xdg_view =
-      wl_container_of(listener, sonde_xdg_view, request_fullscreen);
+  sonde_view_t sonde_view =
+    wl_container_of(listener, sonde_view, request_fullscreen);
 }
 
 WL_CALLBACK(on_new_toplevel) {
@@ -138,14 +78,15 @@ WL_CALLBACK(on_new_toplevel) {
 
   struct wlr_xdg_toplevel *toplevel = data;
 
-  // make a sonde_xdg_view
-  struct sonde_xdg_view *sonde_xdg_view = calloc(1, sizeof(*sonde_xdg_view));
+  // make a sonde_xdg_view/sonde_view
+  sonde_xdg_view_t sonde_xdg_view = calloc(1, sizeof(*sonde_xdg_view));
   sonde_xdg_view->base.server = server;
   sonde_xdg_view->toplevel = toplevel;
   sonde_xdg_view->base.scene_tree =
       wlr_scene_xdg_surface_create(&server->scene->tree, toplevel->base);
   // set the data field on the scene tree node
   sonde_xdg_view->base.scene_tree->node.data = sonde_xdg_view;
+  sonde_xdg_view->base.surface = toplevel->base->surface;
   // set the user data field to the scene tree so we can use in on_new_popup
   // below
   toplevel->base->data = sonde_xdg_view->base.scene_tree;
@@ -166,7 +107,7 @@ WL_CALLBACK(on_new_toplevel) {
   LISTEN(&toplevel->events.request_maximize,
          &sonde_xdg_view->base.request_maximize, on_toplevel_request_maximize);
   LISTEN(&toplevel->events.request_fullscreen,
-         &sonde_xdg_view->base.request_fullsize,
+         &sonde_xdg_view->base.request_fullscreen,
          on_toplevel_request_fullscreen);
 }
 

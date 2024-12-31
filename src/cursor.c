@@ -1,6 +1,6 @@
 #include "cursor.h"
 #include "server.h"
-#include "xdg-shell.h"
+#include "view.h"
 
 static void process_cursor_motion(sonde_server_t server, uint32_t time) {
   switch (server->cursor_mode) {
@@ -9,9 +9,9 @@ static void process_cursor_motion(sonde_server_t server, uint32_t time) {
       // send event to toplevel
       struct wlr_surface *surface = NULL;
       double sx, sy;
-      struct sonde_toplevel *toplevel = sonde_toplevel_at(server, server->cursor->x, server->cursor->y, &surface, &sx, &sy);
+      sonde_view_t sonde_view = sonde_view_at(server, server->cursor->x, server->cursor->y, &surface, &sx, &sy);
       
-      if (toplevel == NULL) {
+      if (sonde_view == NULL) {
         wlr_cursor_set_xcursor(server->cursor, server->cursor_manager, "default");
       }
       
@@ -65,8 +65,8 @@ WL_CALLBACK(on_cursor_button) {
     // focus client
     struct wlr_surface *surface = NULL;
     double sx, sy;
-    struct sonde_toplevel *toplevel = sonde_toplevel_at(server, server->cursor->x, server->cursor->y, &surface, &sx, &sy);
-    sonde_toplevel_focus(toplevel);
+    sonde_view_t sonde_view = sonde_view_at(server, server->cursor->x, server->cursor->y, &surface, &sx, &sy);
+    sonde_view_focus(sonde_view);
   }
 }
 WL_CALLBACK(on_cursor_axis) {

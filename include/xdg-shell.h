@@ -2,23 +2,14 @@
 
 #include "server.h"
 #include "common.h"
+#include "view.h"
 
-struct sonde_toplevel {
-  struct wl_list link;
-  
-  sonde_server_t server;
+struct sonde_xdg_view {
+  struct sonde_view base;
   struct wlr_xdg_toplevel *toplevel;
-  struct wlr_scene_tree *scene_tree;
-
-  // events
-  struct wl_listener map;
-  struct wl_listener unmap;
-  struct wl_listener commit;
-  struct wl_listener destroy;
-  struct wl_listener request_move;
-  struct wl_listener request_resize;
-  struct wl_listener request_maximize;
-  struct wl_listener request_fullscreen;
+  struct wl_listener set_app_id;
+  struct wl_listener show_window_menu;
+  struct wl_listener new_popup;
 };
 
 struct sonde_popup {
@@ -32,12 +23,9 @@ struct sonde_popup {
 int sonde_xdg_shell_initialize(sonde_server_t server);
 void sonde_xdg_shell_destroy(sonde_server_t server);
 
-void sonde_toplevel_focus(struct sonde_toplevel *toplevel);
+typedef struct sonde_xdg_view* sonde_xdg_view_t;
 
-/// finds the toplevel and surface at position (lx, ly)
-/// returns the toplevel, sets surface to the corresponding surface,
-/// and sets sx and sy to the surface-local coordinates
-struct sonde_toplevel *sonde_toplevel_at(sonde_server_t server, double lx,
-                                         double ly,
-                                         struct wlr_surface **surface,
-                                         double *sx, double *sy);
+static inline sonde_xdg_view_t sonde_xdg_view_from_sonde_view(sonde_view_t sonde_view) {
+  sonde_xdg_view_t sonde_xdg_view = wl_container_of(sonde_view, sonde_xdg_view, base);
+  return sonde_xdg_view;
+}
