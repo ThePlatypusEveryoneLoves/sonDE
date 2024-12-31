@@ -1,16 +1,16 @@
 #include "xdg-shell.h"
 #include "common.h"
+#include "view.h"
 #include "wlr/types/wlr_xdg_decoration_v1.h"
 #include <assert.h>
-
 // move a toplevel to front
-void sonde_toplevel_focus(struct sonde_toplevel *sonde_toplevel) {
-  if (sonde_toplevel == NULL)
+void sonde_xdg_view_focus(struct sonde_xdg_view *sonde_xdg_view) {
+  if (sonde_xdg_view == NULL)
     return;
 
   struct wlr_surface *current_surface =
-      sonde_toplevel->server->seat->keyboard_state.focused_surface;
-  struct wlr_surface *target_surface = sonde_toplevel->toplevel->base->surface;
+      sonde_xdg_view->base.server->seat->keyboard_state.focused_surface;
+  struct wlr_surface *target_surface = sonde_xdg_view->toplevel->base->surface;
 
   if (current_surface == target_surface)
     return;
@@ -24,24 +24,25 @@ void sonde_toplevel_focus(struct sonde_toplevel *sonde_toplevel) {
   }
 
   // move to front
-  wlr_scene_node_raise_to_top(&sonde_toplevel->scene_tree->node);
+  wlr_scene_node_raise_to_top(&sonde_xdg_view->base.scene_tree->node);
   // move to front of server.toplevels
-  wl_list_remove(&sonde_toplevel->link);
-  wl_list_insert(&sonde_toplevel->server->toplevels, &sonde_toplevel->link);
+  wl_list_remove(&sonde_xdg_view->base.link);
+  wl_list_insert(&sonde_xdg_view->base.server->toplevels,
+                 &sonde_xdg_view->base.link);
 
   // activate
-  wlr_xdg_toplevel_set_activated(sonde_toplevel->toplevel, true);
+  wlr_xdg_toplevel_set_activated(sonde_xdg_view->toplevel, true);
 
   // move keyboard focus
   struct wlr_keyboard *keyboard =
-      wlr_seat_get_keyboard(sonde_toplevel->server->seat);
+      wlr_seat_get_keyboard(sonde_xdg_view->base.server->seat);
   if (keyboard != NULL)
-    wlr_seat_keyboard_notify_enter(sonde_toplevel->server->seat, target_surface,
-                                   keyboard->keycodes, keyboard->num_keycodes,
-                                   &keyboard->modifiers);
+    wlr_seat_keyboard_notify_enter(
+        sonde_xdg_view->base.server->seat, target_surface, keyboard->keycodes,
+        keyboard->num_keycodes, &keyboard->modifiers);
 }
 
-struct sonde_toplevel *sonde_toplevel_at(sonde_server_t server, double lx,
+struct sonde_xdg_view *sonde_xdg_view_at(sonde_server_t server, double lx,
                                          double ly,
                                          struct wlr_surface **surface,
                                          double *sx, double *sy) {
@@ -68,69 +69,68 @@ struct sonde_toplevel *sonde_toplevel_at(sonde_server_t server, double lx,
 }
 
 WL_CALLBACK(on_toplevel_map) {
-  struct sonde_toplevel *sonde_toplevel =
-      wl_container_of(listener, sonde_toplevel, map);
+  struct sonde_xdg_view *sonde_xdg_view =
+      wl_container_of(listener, sonde_xdg_view, map);
 
-  wl_list_insert(&sonde_toplevel->server->toplevels, &sonde_toplevel->link);
+  wl_list_insert(&sonde_xdg_view->base.server->toplevels,
+                 &sonde_xdg_view->base.link);
 
-  sonde_toplevel_focus(sonde_toplevel);
+  sonde_xdg_view_focus(sonde_xdg_view);
 }
 
 WL_CALLBACK(on_toplevel_unmap) {
-  struct sonde_toplevel *sonde_toplevel =
-      wl_container_of(listener, sonde_toplevel, unmap);
+  struct sonde_view *sonde_view = wl_container_of(listener, sonde_view, unmap);
 
   // TODO: reset cursor mode if this was being grabbed
 
-  wl_list_remove(&sonde_toplevel->link);
+  wl_list_remove(&sonde_view->link);
 }
 
 WL_CALLBACK(on_toplevel_commit) {
-  struct sonde_toplevel *sonde_toplevel =
-      wl_container_of(listener, sonde_toplevel, commit);
+  struct sonde_xdg_view *sonde_xdg_view = wl_container_of(
+      wl_container_of(listener, sonde_view, commit), sonde_xdg_view, base);
 
-  if (sonde_toplevel->toplevel->base->initial_commit) {
+  if (sonde_xdg_view->toplevel->base->initial_commit) {
     // configuration for the first commit  (we could change geometry here)
-    wlr_xdg_surface_schedule_configure(sonde_toplevel->toplevel->base);
+    wlr_xdg_surface_schedule_configure(sonde_xdg_view->toplevel->base);
     /*Let the client decide the size that they want to be*/
-    wlr_xdg_toplevel_set_size(sonde_toplevel->toplevel, 0, 0);
+    wlr_xdg_toplevel_set_size(sonde_xdg_view->toplevel, 0, 0);
   }
 }
 
 WL_CALLBACK(on_toplevel_destroy) {
-  struct sonde_toplevel *sonde_toplevel =
-      wl_container_of(listener, sonde_toplevel, destroy);
+  struct sonde_view *sonde_view = wl_container_of(listener, sonde_view, unmap);
 
-  wl_list_remove(&sonde_toplevel->map.link);
-  wl_list_remove(&sonde_toplevel->unmap.link);
-  wl_list_remove(&sonde_toplevel->commit.link);
-  wl_list_remove(&sonde_toplevel->destroy.link);
-  wl_list_remove(&sonde_toplevel->request_move.link);
-  wl_list_remove(&sonde_toplevel->request_resize.link);
-  wl_list_remove(&sonde_toplevel->request_maximize.link);
-  wl_list_remove(&sonde_toplevel->request_fullscreen.link);
+  wl_list_remove(&sonde_view->map.link);
+  wl_list_remove(&sonde_view->unmap.link);
+  wl_list_remove(&sonde_view->commit.link);
+  wl_list_remove(&sonde_view->destroy.link);
+  wl_list_remove(&sonde_view->request_move.link);
+  wl_list_remove(&sonde_view->request_resize.link);
+  wl_list_remove(&sonde_view->request_maximize.link);
+  wl_list_remove(&sonde_view->request_fullsize.link);
 
-  free(sonde_toplevel);
+  free(sonde_xdg_view);
 }
 
 WL_CALLBACK(on_toplevel_request_move) {
-  struct sonde_toplevel *sonde_toplevel =
-      wl_container_of(listener, sonde_toplevel, request_move);
+  struct sonde_xdg_view *sonde_xdg_view =
+      wl_container_of(listener, sonde_xdg_view, request_move);
 }
 
 WL_CALLBACK(on_toplevel_request_resize) {
-  struct sonde_toplevel *sonde_toplevel =
-      wl_container_of(listener, sonde_toplevel, request_resize);
+  struct sonde_xdg_view *sonde_xdg_view =
+      wl_container_of(listener, sonde_xdg_view, request_resize);
 }
 
 WL_CALLBACK(on_toplevel_request_maximize) {
-  struct sonde_toplevel *sonde_toplevel =
-      wl_container_of(listener, sonde_toplevel, request_maximize);
+  struct sonde_xdg_view *sonde_xdg_view =
+      wl_container_of(listener, sonde_xdg_view, request_maximize);
 }
 
 WL_CALLBACK(on_toplevel_request_fullscreen) {
-  struct sonde_toplevel *sonde_toplevel =
-      wl_container_of(listener, sonde_toplevel, request_fullscreen);
+  struct sonde_xdg_view *sonde_xdg_view =
+      wl_container_of(listener, sonde_xdg_view, request_fullscreen);
 }
 
 WL_CALLBACK(on_new_toplevel) {
@@ -138,35 +138,36 @@ WL_CALLBACK(on_new_toplevel) {
 
   struct wlr_xdg_toplevel *toplevel = data;
 
-  // make a sonde_toplevel
-  struct sonde_toplevel *sonde_toplevel = calloc(1, sizeof(*sonde_toplevel));
-  sonde_toplevel->server = server;
-  sonde_toplevel->toplevel = toplevel;
-  sonde_toplevel->scene_tree =
+  // make a sonde_xdg_view
+  struct sonde_xdg_view *sonde_xdg_view = calloc(1, sizeof(*sonde_xdg_view));
+  sonde_xdg_view->base.server = server;
+  sonde_xdg_view->toplevel = toplevel;
+  sonde_xdg_view->base.scene_tree =
       wlr_scene_xdg_surface_create(&server->scene->tree, toplevel->base);
   // set the data field on the scene tree node
-  sonde_toplevel->scene_tree->node.data = sonde_toplevel;
+  sonde_xdg_view->base.scene_tree->node.data = sonde_xdg_view;
   // set the user data field to the scene tree so we can use in on_new_popup
   // below
-  toplevel->base->data = sonde_toplevel->scene_tree;
+  toplevel->base->data = sonde_xdg_view->base.scene_tree;
 
   // event listeners
-  LISTEN(&toplevel->base->surface->events.map, &sonde_toplevel->map,
+  LISTEN(&toplevel->base->surface->events.map, &sonde_xdg_view->base.map,
          on_toplevel_map);
-  LISTEN(&toplevel->base->surface->events.unmap, &sonde_toplevel->unmap,
+  LISTEN(&toplevel->base->surface->events.unmap, &sonde_xdg_view->base.unmap,
          on_toplevel_unmap);
-  LISTEN(&toplevel->base->surface->events.commit, &sonde_toplevel->commit,
+  LISTEN(&toplevel->base->surface->events.commit, &sonde_xdg_view->base.commit,
          on_toplevel_commit);
-  LISTEN(&toplevel->events.destroy, &sonde_toplevel->destroy,
+  LISTEN(&toplevel->events.destroy, &sonde_xdg_view->base.destroy,
          on_toplevel_destroy);
-  LISTEN(&toplevel->events.request_move, &sonde_toplevel->request_move,
+  LISTEN(&toplevel->events.request_move, &sonde_xdg_view->base.request_move,
          on_toplevel_request_move);
-  LISTEN(&toplevel->events.request_resize, &sonde_toplevel->request_resize,
+  LISTEN(&toplevel->events.request_resize, &sonde_xdg_view->base.request_resize,
          on_toplevel_request_resize);
-  LISTEN(&toplevel->events.request_maximize, &sonde_toplevel->request_maximize,
-         on_toplevel_request_maximize);
+  LISTEN(&toplevel->events.request_maximize,
+         &sonde_xdg_view->base.request_maximize, on_toplevel_request_maximize);
   LISTEN(&toplevel->events.request_fullscreen,
-         &sonde_toplevel->request_fullscreen, on_toplevel_request_fullscreen);
+         &sonde_xdg_view->base.request_fullsize,
+         on_toplevel_request_fullscreen);
 }
 
 WL_CALLBACK(on_popup_commit) {
