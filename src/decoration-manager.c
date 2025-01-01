@@ -1,4 +1,5 @@
 #include "decoration-manager.h"
+#include "decorations.h"
 
 WL_CALLBACK(on_decoration_surface_commit) {
   struct sonde_xdg_decoration *sonde_xdg_decoration = wl_container_of(listener, sonde_xdg_decoration, surface_commit);
@@ -28,6 +29,7 @@ WL_CALLBACK(on_decoration_request_mode) {
   sonde_xdg_decoration->client_mode = client_mode;
 
   // apply SSD
+  sonde_apply_decorations(sonde_xdg_decoration);
 }
 
 WL_CALLBACK(on_decoration_destroy) {
