@@ -1,5 +1,6 @@
 #pragma once
 
+#include "user_config.h"
 #include "common.h"
 #include "array.h"
 #include <lua.h>
@@ -10,11 +11,15 @@ struct sonde_screen_config {
   char* name;
 };
 
-struct sonde_keyboard_config {
-  char* name;
+struct sonde_keyboard_config_inner {
   uint32_t repeat_delay; // ms
   uint32_t repeat_rate; // hertz
   struct xkb_rule_names keymap;
+};
+
+struct sonde_keyboard_config {
+  char* name;
+  struct sonde_keyboard_config_inner inner;
 };
 
 struct sonde_config {

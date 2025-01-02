@@ -1,6 +1,7 @@
 #include "common.h"
 #include "seat.h"
 #include "server.h"
+#include "user_config.h"
 #include "xdg-shell.h"
 
 // shift, ctrl, alt, etc
@@ -85,18 +86,20 @@ static void new_keyboard(sonde_server_t server, struct wlr_input_device *device)
   sonde_keyboard->server = server;
   sonde_keyboard->keyboard = keyboard;
 
+  wlr_log(WLR_DEBUG, "new keyboard: %s", device->name);
+
   // apply XKB keymap
 
   struct sonde_keyboard_config *kbd_config = NULL;
   struct sonde_keyboard_config *item = NULL;
   ARRAY_FOREACH(&server->config.keyboards, item) {
-    if (strcmp(keyboard->base.name, item->name) == 0) {
+    if (strcmp(device->name, item->name) == 0) {
       kbd_config = item;
       break;
     }
   }
 
-  struct xkb_rule_names *keymap_config = kbd_config == NULL ? NULL : &kbd_config->keymap;
+  struct xkb_rule_names *keymap_config = kbd_config == NULL ? NULL : &kbd_config->inner.keymap;
 
   struct xkb_context *context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
   struct xkb_keymap *keymap = xkb_keymap_new_from_names(context, keymap_config, XKB_KEYMAP_COMPILE_NO_FLAGS);
@@ -106,9 +109,9 @@ static void new_keyboard(sonde_server_t server, struct wlr_input_device *device)
 
   if (kbd_config == NULL) {
     // default repeat rate
-    wlr_keyboard_set_repeat_info(keyboard, 30, 200);
+    wlr_keyboard_set_repeat_info(keyboard, SONDE_KEYBOARD_DEFAULT_REPEAT_RATE, SONDE_KEYBOARD_DEFAULT_REPEAT_DELAY);
   } else {
-    wlr_keyboard_set_repeat_info(keyboard, kbd_config->repeat_rate, kbd_config->repeat_delay);
+    wlr_keyboard_set_repeat_info(keyboard, kbd_config->inner.repeat_rate, kbd_config->inner.repeat_delay);
   }
 
   // events

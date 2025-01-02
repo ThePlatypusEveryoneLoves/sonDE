@@ -39,3 +39,15 @@
 
 #define WL_CALLBACK(NAME) \
   static void NAME(struct wl_listener *listener, void *data)
+
+///     strdup, but STR can be NULL
+#define STRDUP(STR) (STR) == NULL ? NULL : strdup((STR))
+
+/// Similar to strcpy but not really
+/// Frees dest if not null, copies src, and assigns the new pointer into dest
+/// Does nothing if src is null
+static inline void str_replace(char **dest, const char *src) {
+  if (src == NULL) return;
+  if (*dest != NULL) free(*dest);
+  *dest = strdup(src);
+}
