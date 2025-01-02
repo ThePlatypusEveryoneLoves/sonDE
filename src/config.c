@@ -47,6 +47,8 @@ static void sonde_config_reset(struct sonde_config *config) {
   // free arrays
   ARRAY_CLEAR(&config->screens);
   ARRAY_CLEAR(&config->keyboards);
+
+  free(config->default_terminal);
 }
 
 int sonde_config_initialize(struct sonde_config *config) {
@@ -263,6 +265,14 @@ static int sonde_config_lua_exec(struct sonde_config *config,
 
     // pop the value off, as well as width, height, ad refresh rate, leave the key
     lua_pop(config->lua_state, 8); //                               -8 +0 = 1
+  }
+
+  // pop keyboards
+  lua_pop(config->lua_state, 1);
+
+  // default terminal (optional)
+  if (lua_getfield(config->lua_state, -1, "default_terminal") == LUA_TSTRING) {
+    str_replace(&config->default_terminal, lua_tostring(config->lua_state, -1));
   }
 
   // clear the stack

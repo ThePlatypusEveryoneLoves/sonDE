@@ -3,6 +3,7 @@
 #include "server.h"
 #include "user_config.h"
 #include "xdg-shell.h"
+#include <unistd.h>
 
 // shift, ctrl, alt, etc
 WL_CALLBACK(on_keyboard_modifiers) {
@@ -31,6 +32,15 @@ static bool handle_wm_keybinding(sonde_server_t server, xkb_keysym_t key) {
     struct sonde_toplevel *next_toplevel = wl_container_of(server->toplevels.prev, next_toplevel, link);
     sonde_toplevel_focus(next_toplevel);
     break;
+  case XKB_KEY_Return:
+    // open terminal
+
+    if (server->config.default_terminal != NULL) {
+      if (fork() == 0) {
+        execlp(server->config.default_terminal, server->config.default_terminal, NULL);
+      }
+    }
+    break;
   default:
     return false;
   }
@@ -52,7 +62,7 @@ WL_CALLBACK(on_keyboard_key) {
   uint32_t modifiers = wlr_keyboard_get_modifiers(sonde_keyboard->keyboard);
 
   // Super = WM keybinding
-  if ((modifiers & WLR_MODIFIER_LOGO) && event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+  if ((modifiers & WLR_MODIFIER_ALT) && event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
     for (int i = 0; i < num_syms; i++) {
       // try to process as a WM keybinding
       if ((handled = handle_wm_keybinding(sonde_keyboard->server, pressed_syms[i]))) {
