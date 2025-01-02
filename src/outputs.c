@@ -1,5 +1,7 @@
 #include "outputs.h"
 #include "common.h"
+#include <wlr/backend/wayland.h>
+#include <wlr/backend/x11.h>
 
 WL_CALLBACK(on_output_frame) {
   struct sonde_output *sonde_output =
@@ -54,6 +56,16 @@ WL_CALLBACK(on_new_output) {
   if (mode != NULL) {
     wlr_output_state_set_mode(&state, mode);
   }
+
+  // If we're running inside an existing wayland session, set the title
+  if (wlr_output_is_wl(output)) {
+    wlr_wl_output_set_app_id(output, "sonde");
+    wlr_wl_output_set_title(output, "sonDE");
+  }
+  if (wlr_output_is_x11(output)) {
+    wlr_wl_output_set_title(output, "sonDE");
+  }
+  
 
   // commit this state
   wlr_output_commit_state(output, &state);

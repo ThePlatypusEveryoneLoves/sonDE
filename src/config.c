@@ -1,8 +1,29 @@
 #include "config.h"
+#include "user_config.h"
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
 #include <unistd.h>
+
+/// Gets a value from a Lua table (at TABLE_POS). If the type is not VALUE_TYPE,
+/// returns DEFAULT
+/// Uses VALUE_FN to coerce the value
+/// -0 +1
+#define LUA_TABLE_TRY_GET(LUA_STATE, TABLE_POS, KEY, VALUE_TYPE, VALUE_FN,     \
+                          DEFAULT)                                             \
+  lua_getfield((LUA_STATE), (TABLE_POS), (KEY)) == (VALUE_TYPE)                \
+      ? VALUE_FN((LUA_STATE), -1)                                              \
+      : (DEFAULT)
+
+/// Convenience macros
+#define LUA_TABLE_TRY_GET_INT(LUA_STATE, TABLE_POS, KEY)                       \
+  LUA_TABLE_TRY_GET(LUA_STATE, TABLE_POS, KEY, LUA_TNUMBER, lua_tointeger, -1)
+
+#define LUA_TABLE_TRY_GET_FLOAT(LUA_STATE, TABLE_POS, KEY)                     \
+  LUA_TABLE_TRY_GET(LUA_STATE, TABLE_POS, KEY, LUA_TNUMBER, lua_tonumber, -1)
+
+#define LUA_TABLE_TRY_GET_STRING(LUA_STATE, TABLE_POS, KEY) \
+  LUA_TABLE_TRY_GET(LUA_STATE, TABLE_POS, KEY, LUA_TSTRING, lua_tostring, NULL)
 
 /// reset config to initial state, freeing all arrays
 static void sonde_config_reset(struct sonde_config *config) {
@@ -15,11 +36,19 @@ static void sonde_config_reset(struct sonde_config *config) {
   struct sonde_keyboard_config *keyboard_config = NULL;
   ARRAY_FOREACH(&config->keyboards, keyboard_config) {
     free(keyboard_config->name);
+    // we own these
+    free((char *)keyboard_config->inner.keymap.layout);
+    free((char *)keyboard_config->inner.keymap.model);
+    free((char *)keyboard_config->inner.keymap.rules);
+    free((char *)keyboard_config->inner.keymap.options);
+    free((char *)keyboard_config->inner.keymap.variant);
   }
 
   // free arrays
   ARRAY_CLEAR(&config->screens);
   ARRAY_CLEAR(&config->keyboards);
+
+  free(config->default_terminal);
 }
 
 int sonde_config_initialize(struct sonde_config *config) {
@@ -91,6 +120,45 @@ static void update_or_insert_screen(struct sonde_config *config, const char *scr
   ARRAY_APPEND(&config->screens, new_item);
 }
 
+static void update_or_insert_keyboard(struct sonde_config *config, const char *keyboard_name, struct sonde_keyboard_config_inner kb_config) {
+  struct sonde_keyboard_config *item = NULL;
+  ARRAY_FOREACH(&config->keyboards, item) {
+    if (strcmp(item->name, keyboard_name) == 0) {
+      // update this item
+
+      if (kb_config.repeat_rate != -1)
+        item->inner.repeat_rate = kb_config.repeat_rate;
+      if (kb_config.repeat_delay != -1)
+        item->inner.repeat_delay = kb_config.repeat_delay;
+
+      // cast from const char ** to char ** is safe because we always own anything in item.keymap
+      str_replace((char **)&item->inner.keymap.rules, kb_config.keymap.rules);
+      str_replace((char **)&item->inner.keymap.model, kb_config.keymap.model);
+      str_replace((char **)&item->inner.keymap.layout, kb_config.keymap.layout);
+      str_replace((char **)&item->inner.keymap.variant, kb_config.keymap.variant);
+      str_replace((char **)&item->inner.keymap.options, kb_config.keymap.options);
+      
+      return;
+    }
+  }
+  // insert a new item
+  struct sonde_keyboard_config new_item = {
+    .name = strdup(keyboard_name), // we don't own the strings lua gives us
+    .inner = {
+      .repeat_rate = kb_config.repeat_rate == -1 ? SONDE_KEYBOARD_DEFAULT_REPEAT_RATE : kb_config.repeat_rate,
+      .repeat_delay = kb_config.repeat_delay == -1 ? SONDE_KEYBOARD_DEFAULT_REPEAT_DELAY : kb_config.repeat_delay,
+      .keymap = {
+        .rules = STRDUP(kb_config.keymap.rules),
+        .model = STRDUP(kb_config.keymap.model),
+        .layout = STRDUP(kb_config.keymap.layout),
+        .variant = STRDUP(kb_config.keymap.variant),
+        .options = STRDUP(kb_config.keymap.options)
+      }
+    }
+  };
+  ARRAY_APPEND(&config->keyboards, new_item);
+}
+
 static int sonde_config_lua_exec(struct sonde_config *config,
                                  const char *filename) {
   if (luaL_loadfile(config->lua_state, filename)) {
@@ -153,7 +221,58 @@ static int sonde_config_lua_exec(struct sonde_config *config,
     } // else ignore
 
     // pop the value off, as well as width, height, ad refresh rate, leave the key
-    lua_pop(config->lua_state, 4); //                               -4 +1 = 1
+    lua_pop(config->lua_state, 4); //                               -4 +0 = 1
+  }
+
+  // pop screens
+  lua_pop(config->lua_state, 1);
+
+  // push keyboards onto the stack
+  if (lua_getfield(config->lua_state, -1, "keyboards") != LUA_TTABLE) {
+    wlr_log(WLR_ERROR, "lua config %s: invalid keyboards type", filename);
+    lua_settop(config->lua_state, 0);
+    return 1;
+  }
+
+  // iterate over keyboards table
+  lua_pushnil(config->lua_state); // "initial value" of the key     -0 +1 = 1
+  while (lua_next(config->lua_state, -2)) { // table is at -2       -1 +2 = 2
+    // lua_next pushes a key and value onto the stack
+
+    const char *name = lua_tostring(config->lua_state, -2);
+
+    uint32_t rep_delay = LUA_TABLE_TRY_GET_INT(config->lua_state, -1, "repeat_delay"); // 3
+    uint32_t rep_rate = LUA_TABLE_TRY_GET_INT(config->lua_state, -2, "repeat_rate"); // 4
+    const char *xkb_rules = LUA_TABLE_TRY_GET_STRING(config->lua_state, -3, "xkb_rules"); // 5
+    const char *xkb_model = LUA_TABLE_TRY_GET_STRING(config->lua_state, -4, "xkb_model"); // 6
+    const char *xkb_layout = LUA_TABLE_TRY_GET_STRING(config->lua_state, -5, "xkb_layout"); // 7
+    const char *xkb_variant = LUA_TABLE_TRY_GET_STRING(config->lua_state, -6, "xkb_variant"); // 8
+    const char *xkb_options = LUA_TABLE_TRY_GET_STRING(config->lua_state, -7, "xkb_options"); // 9
+
+    struct sonde_keyboard_config_inner kb_config = {
+      .repeat_delay = rep_delay,
+      .repeat_rate = rep_rate,
+      .keymap = {
+        .rules = xkb_rules,
+        .model = xkb_model,
+        .layout = xkb_layout,
+        .variant = xkb_variant,
+        .options = xkb_options
+      }
+    };
+
+    update_or_insert_keyboard(config, name, kb_config);
+
+    // pop the value off, as well as width, height, ad refresh rate, leave the key
+    lua_pop(config->lua_state, 8); //                               -8 +0 = 1
+  }
+
+  // pop keyboards
+  lua_pop(config->lua_state, 1);
+
+  // default terminal (optional)
+  if (lua_getfield(config->lua_state, -1, "default_terminal") == LUA_TSTRING) {
+    str_replace(&config->default_terminal, lua_tostring(config->lua_state, -1));
   }
 
   // clear the stack
