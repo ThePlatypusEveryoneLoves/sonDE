@@ -159,14 +159,18 @@ static void update_or_insert_keyboard(struct sonde_config *config, const char *k
   ARRAY_APPEND(&config->keyboards, new_item);
 }
 
-static int sonde_config_lua_exec(struct sonde_config *config,
-                                 const char *filename) {
-  if (luaL_loadfile(config->lua_state, filename)) {
-    // error mesage at top of stack
-    wlr_log(WLR_ERROR, "could not open lua config %s: %s", filename, lua_tostring(config->lua_state, -1));
-    return 1;
-  }
+/// Initializes the "key" and "mod" global readonly tables
+static void init_keybind_globals(struct sonde_config *config) {
+  lua_createtable(config->lua_state, 0, 4);
 
+  
+  
+  lua_setglobal(config->lua_state, "key");
+}
+
+/// Initialize the sonde global exposed to lua config
+/// The user sets values on this dict, so it is cleared/reinitalized every time config is reloaded
+static void init_sonde_global(struct sonde_config *config) {
   // define the sonde global
   lua_createtable(config->lua_state, 0, 2);
 
@@ -179,6 +183,21 @@ static int sonde_config_lua_exec(struct sonde_config *config,
   lua_setfield(config->lua_state, -2, "keyboards"); // table is at -2
 
   lua_setglobal(config->lua_state, "sonde"); // table = "sonde"
+}
+
+// force sonde global to be garbage collected
+static void destroy_sonde_global(struct sonde_config *config) {
+  lua_pushnil(config->lua_state);
+  lua_setglobal(config->lua_state, "sonde");
+}
+
+static int exec_lua_config(struct sonde_config *config,
+                              const char *filename) {
+  if (luaL_loadfile(config->lua_state, filename)) {
+    // error mesage at top of stack
+    wlr_log(WLR_ERROR, "could not open lua config %s: %s", filename, lua_tostring(config->lua_state, -1));
+    return 1;
+  }
 
   // run
   if (lua_pcall(config->lua_state, 0, LUA_MULTRET, 0)) {
@@ -186,17 +205,21 @@ static int sonde_config_lua_exec(struct sonde_config *config,
     lua_settop(config->lua_state, 0);
     return 1;
   }
+  
+  return 0;
+}
 
+static int parse_lua_config(struct sonde_config *config) {
   // retrieve configured dict
   if (lua_getglobal(config->lua_state, "sonde") != LUA_TTABLE) {
-    wlr_log(WLR_ERROR, "lua config %s has changed type of sonde dict", filename);
+    wlr_log(WLR_ERROR, "lua config: corrupted sonde dict");
     lua_settop(config->lua_state, 0);
     return 1;
   }
 
   // push screens onto the stack
   if (lua_getfield(config->lua_state, -1, "screens") != LUA_TTABLE) {
-    wlr_log(WLR_ERROR, "lua config %s: invalid screens type", filename);
+    wlr_log(WLR_ERROR, "lua config: invalid screens type");
     lua_settop(config->lua_state, 0);
     return 1;
   }
@@ -229,7 +252,7 @@ static int sonde_config_lua_exec(struct sonde_config *config,
 
   // push keyboards onto the stack
   if (lua_getfield(config->lua_state, -1, "keyboards") != LUA_TTABLE) {
-    wlr_log(WLR_ERROR, "lua config %s: invalid keyboards type", filename);
+    wlr_log(WLR_ERROR, "lua config: invalid keyboards type");
     lua_settop(config->lua_state, 0);
     return 1;
   }
@@ -285,15 +308,27 @@ int sonde_config_reload(struct sonde_config *config) {
   sonde_config_reset(config);
 
   // TODO: apply compile time config here (user-config.h)
+
+  init_sonde_global(config);
   
   // apply config, in order
   for (int i = 0; i < sizeof(config->conf_files) / sizeof(char*); i++) {
     if (access(config->conf_files[i], F_OK) == 0) {
       wlr_log(WLR_DEBUG, "executing lua config: %s", config->conf_files[i]);
       // if the file exists, execute it
-      if (sonde_config_lua_exec(config, config->conf_files[i])) return 1;
+      if (exec_lua_config(config, config->conf_files[i])) {
+        destroy_sonde_global(config);
+        return 1;
+      }
     }
   }
+
+  if (parse_lua_config(config)) {
+    destroy_sonde_global(config);
+    return 1;
+  }
+
+  destroy_sonde_global(config);
 
   return 0;
 }
