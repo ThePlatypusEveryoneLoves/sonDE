@@ -4,6 +4,7 @@
 #include "user_config.h"
 #include "xdg-shell.h"
 #include <unistd.h>
+#include <xkbcommon/xkbcommon.h>
 
 // shift, ctrl, alt, etc
 WL_CALLBACK(on_keyboard_modifiers) {
@@ -41,6 +42,10 @@ static bool handle_wm_keybinding(sonde_server_t server, xkb_keysym_t key) {
       }
     }
     break;
+
+  case XKB_KEY_UP:
+
+    break; 
   default:
     return false;
   }

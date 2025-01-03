@@ -19,6 +19,7 @@ struct sonde_view {
   struct wl_listener map;
   struct wl_listener unmap;
 
+  struct wlr_scene_rect *rect;
   struct wlr_scene_tree *scene_tree;
   struct wlr_surface *surface;
   enum {
@@ -29,14 +30,13 @@ struct sonde_view {
   } type;
 };
 
-typedef struct sonde_view* sonde_view_t;
+typedef struct sonde_view *sonde_view_t;
 
 void sonde_view_focus(sonde_view_t sonde_view);
 
 /// finds the toplevel and surface at position (lx, ly)
 /// returns the toplevel, sets surface to the corresponding surface,
 /// and sets sx and sy to the surface-local coordinates
-sonde_view_t sonde_view_at(sonde_server_t server, double lx,
-                                         double ly,
-                                         struct wlr_surface **surface,
-                                         double *sx, double *sy);
+sonde_view_t sonde_view_at(sonde_server_t server, double lx, double ly,
+                           struct wlr_surface **surface, double *sx,
+                           double *sy);

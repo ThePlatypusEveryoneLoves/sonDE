@@ -4,19 +4,15 @@
 #include <assert.h>
 
 WL_CALLBACK(on_toplevel_map) {
-  sonde_view_t sonde_view =
-      wl_container_of(listener, sonde_view, map);
+  sonde_view_t sonde_view = wl_container_of(listener, sonde_view, map);
 
   // insert into server toplevels list
-  wl_list_insert(&sonde_view->server->views,
-                 &sonde_view->link);
-
+  wl_list_insert(&sonde_view->server->views, &sonde_view->link);
   sonde_view_focus(sonde_view);
 }
 
 WL_CALLBACK(on_toplevel_unmap) {
-  sonde_view_t sonde_view =
-    wl_container_of(listener, sonde_view, unmap);
+  sonde_view_t sonde_view = wl_container_of(listener, sonde_view, unmap);
 
   // TODO: reset cursor mode if this was being grabbed
 
@@ -24,8 +20,7 @@ WL_CALLBACK(on_toplevel_unmap) {
 }
 
 WL_CALLBACK(on_toplevel_commit) {
-  sonde_view_t sonde_view =
-    wl_container_of(listener, sonde_view, commit);
+  sonde_view_t sonde_view = wl_container_of(listener, sonde_view, commit);
   sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(sonde_view);
 
   if (sonde_xdg_view->toplevel->base->initial_commit) {
@@ -38,8 +33,7 @@ WL_CALLBACK(on_toplevel_commit) {
 }
 
 WL_CALLBACK(on_toplevel_destroy) {
-  sonde_view_t sonde_view =
-    wl_container_of(listener, sonde_view, destroy);
+  sonde_view_t sonde_view = wl_container_of(listener, sonde_view, destroy);
   sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(sonde_view);
 
   wl_list_remove(&sonde_view->map.link);
@@ -55,8 +49,7 @@ WL_CALLBACK(on_toplevel_destroy) {
 }
 
 WL_CALLBACK(on_toplevel_request_move) {
-  sonde_view_t sonde_view =
-      wl_container_of(listener, sonde_view, request_move);
+  sonde_view_t sonde_view = wl_container_of(listener, sonde_view, request_move);
 }
 
 WL_CALLBACK(on_toplevel_request_resize) {
@@ -66,12 +59,12 @@ WL_CALLBACK(on_toplevel_request_resize) {
 
 WL_CALLBACK(on_toplevel_request_maximize) {
   sonde_view_t sonde_view =
-    wl_container_of(listener, sonde_view, request_maximize);
+      wl_container_of(listener, sonde_view, request_maximize);
 }
 
 WL_CALLBACK(on_toplevel_request_fullscreen) {
   sonde_view_t sonde_view =
-    wl_container_of(listener, sonde_view, request_fullscreen);
+      wl_container_of(listener, sonde_view, request_fullscreen);
 }
 
 WL_CALLBACK(on_new_toplevel) {
@@ -110,6 +103,16 @@ WL_CALLBACK(on_new_toplevel) {
   LISTEN(&toplevel->events.request_fullscreen,
          &sonde_xdg_view->base.request_fullscreen,
          on_toplevel_request_fullscreen);
+  float bg_color[4] = {0.2, 0.2, 0.2, 1.0}; // Dark gray
+   struct wlr_scene_buffer *scene_buffer = wlr_scene_buffer_from_node(&sonde_xdg_view->base.scene_tree->node);
+  struct wlr_scene_surface *scene_surface =
+      wlr_scene_surface_try_from_buffer(scene_buffer);
+sonde_xdg_view->base.rect = wlr_scene_rect_create(
+      sonde_xdg_view->base.scene_tree, scene_buffer->buffer_width, 100, bg_color);
+ 
+  wlr_scene_node_set_position(&sonde_xdg_view->base.rect->node, 0, -30);
+  wlr_scene_node_set_position(&sonde_xdg_view->base.scene_tree->node, 20, 30);
+  // struct wlr_scene_node tree_node = sonde_xdg_view->base.scene_tree->node;
 }
 
 WL_CALLBACK(on_popup_commit) {
