@@ -33,7 +33,7 @@
 #define SONDE_KEYBIND_SPECIFIER_META "sonde.keybind.specifier"
 
 /// reset config to initial state, freeing all arrays
-static void sonde_config_reset(struct sonde_config *config) {
+static void reset_config(struct sonde_config *config) {
   // free all strings
   struct sonde_screen_config *screen_config = NULL;
   ARRAY_FOREACH(&config->screens, screen_config) {
@@ -177,56 +177,6 @@ static void init_keybind_globals(struct sonde_config *config) {
   luaL_newmetatable(config->lua_state, SONDE_KEYBIND_KEY_META);
 }
 
-int sonde_config_initialize(struct sonde_config *config) {
-  ARRAY_CLEAR(&config->screens);
-  ARRAY_CLEAR(&config->keyboards);
-
-  // get possible conf files
-  char* xdg_config_home = getenv("XDG_CONFIG_HOME");
-  char* xdg_config_dirs = getenv("XDG_CONFIG_DIRS");
-  char* home = getenv("HOME");
-
-  char* system_config = NULL;
-  char* user_config = NULL;
-
-  const char sonde_config_path[] = "%s/sonde/config.lua";
-
-  if (xdg_config_dirs == NULL) {
-    // default to /etc/xdg
-    system_config = strdup("/etc/xdg/sonde/config.lua");
-  } else {
-    int len = snprintf(NULL, 0, sonde_config_path, xdg_config_dirs);
-    system_config = malloc(len + 1);
-    sprintf(system_config, sonde_config_path, xdg_config_dirs);
-  }
-
-  if (xdg_config_home == NULL) {
-    // default to $HOME/.config
-    int len = snprintf(NULL, 0, "%s/.config/sonde/config.lua", home);
-    user_config = malloc(len + 1);
-    sprintf(user_config, "%s/.config/sonde/config.lua", home);
-  } else {
-    int len = snprintf(NULL, 0, sonde_config_path, xdg_config_home);
-    user_config = malloc(len + 1);
-    sprintf(user_config, sonde_config_path, xdg_config_home);
-  }
-
-  // user overrides system
-  config->conf_files[0] = system_config;
-  config->conf_files[1] = user_config;
-
-  // init lua
-  config->lua_state = luaL_newstate();
-  if (config->lua_state == NULL) {
-    wlr_log(WLR_ERROR, "failed to initialize lua");
-  }
-  luaL_openlibs(config->lua_state);
-
-  init_keybind_globals(config);
-
-  return 0;
-}
-
 static void update_or_insert_screen(struct sonde_config *config, const char *screen_name, uint32_t width, uint32_t height, float_t refresh_rate) {
   struct sonde_screen_config *item = NULL;
   ARRAY_FOREACH(&config->screens, item) {
@@ -289,7 +239,7 @@ static void update_or_insert_keyboard(struct sonde_config *config, const char *k
 
 /// Initialize the sonde global exposed to lua config
 /// The user sets values on this dict, so it is cleared/reinitalized every time config is reloaded
-static void init_sonde_global(struct sonde_config *config) {
+static void init_config_global(struct sonde_config *config) {
   // define the sonde global
   lua_createtable(config->lua_state, 0, 2);
 
@@ -305,13 +255,13 @@ static void init_sonde_global(struct sonde_config *config) {
   lua_createtable(config->lua_state, 0, 0);
   lua_setfield(config->lua_state, -2, "keybinds"); // table is at -2
 
-  lua_setglobal(config->lua_state, "sonde"); // table = "sonde"
+  lua_setglobal(config->lua_state, "config"); // table = "config"
 }
 
 // force sonde global to be garbage collected
-static void destroy_sonde_global(struct sonde_config *config) {
+static void destroy_config_global(struct sonde_config *config) {
   lua_pushnil(config->lua_state);
-  lua_setglobal(config->lua_state, "sonde");
+  lua_setglobal(config->lua_state, "config");
 }
 
 static int exec_lua_config(struct sonde_config *config,
@@ -334,7 +284,7 @@ static int exec_lua_config(struct sonde_config *config,
 
 static int parse_lua_config(struct sonde_config *config) {
   // retrieve configured dict
-  if (lua_getglobal(config->lua_state, "sonde") != LUA_TTABLE) {
+  if (lua_getglobal(config->lua_state, "config") != LUA_TTABLE) {
     wlr_log(WLR_ERROR, "lua config: corrupted sonde dict");
     lua_settop(config->lua_state, 0);
     return 1;
@@ -427,12 +377,62 @@ static int parse_lua_config(struct sonde_config *config) {
   return 0;
 }
 
+int sonde_config_initialize(struct sonde_config *config) {
+  ARRAY_CLEAR(&config->screens);
+  ARRAY_CLEAR(&config->keyboards);
+
+  // get possible conf files
+  char* xdg_config_home = getenv("XDG_CONFIG_HOME");
+  char* xdg_config_dirs = getenv("XDG_CONFIG_DIRS");
+  char* home = getenv("HOME");
+
+  char* system_config = NULL;
+  char* user_config = NULL;
+
+  const char sonde_config_path[] = "%s/sonde/config.lua";
+
+  if (xdg_config_dirs == NULL) {
+    // default to /etc/xdg
+    system_config = strdup("/etc/xdg/sonde/config.lua");
+  } else {
+    int len = snprintf(NULL, 0, sonde_config_path, xdg_config_dirs);
+    system_config = malloc(len + 1);
+    sprintf(system_config, sonde_config_path, xdg_config_dirs);
+  }
+
+  if (xdg_config_home == NULL) {
+    // default to $HOME/.config
+    int len = snprintf(NULL, 0, "%s/.config/sonde/config.lua", home);
+    user_config = malloc(len + 1);
+    sprintf(user_config, "%s/.config/sonde/config.lua", home);
+  } else {
+    int len = snprintf(NULL, 0, sonde_config_path, xdg_config_home);
+    user_config = malloc(len + 1);
+    sprintf(user_config, sonde_config_path, xdg_config_home);
+  }
+
+  // user overrides system
+  config->conf_files[0] = system_config;
+  config->conf_files[1] = user_config;
+
+  // init lua
+  config->lua_state = luaL_newstate();
+  if (config->lua_state == NULL) {
+    wlr_log(WLR_ERROR, "failed to initialize lua");
+  }
+  luaL_openlibs(config->lua_state);
+
+  init_keybind_globals(config);
+
+  return 0;
+}
+
 int sonde_config_reload(struct sonde_config *config) {
-  sonde_config_reset(config);
+  reset_config(config);
 
   // TODO: apply compile time config here (user-config.h)
 
-  init_sonde_global(config);
+  init_config_global(config);
   
   // apply config, in order
   for (int i = 0; i < sizeof(config->conf_files) / sizeof(char*); i++) {
@@ -440,24 +440,24 @@ int sonde_config_reload(struct sonde_config *config) {
       wlr_log(WLR_DEBUG, "executing lua config: %s", config->conf_files[i]);
       // if the file exists, execute it
       if (exec_lua_config(config, config->conf_files[i])) {
-        destroy_sonde_global(config);
+        destroy_config_global(config);
         return 1;
       }
     }
   }
 
   if (parse_lua_config(config)) {
-    destroy_sonde_global(config);
+    destroy_config_global(config);
     return 1;
   }
 
-  destroy_sonde_global(config);
+  destroy_config_global(config);
 
   return 0;
 }
 
 void sonde_config_destroy(struct sonde_config *config) {
-  sonde_config_reset(config);
+  reset_config(config);
 
   // free paths
   free(config->conf_files[0]);
