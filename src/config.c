@@ -1,9 +1,11 @@
 #include "config.h"
+#include "keybinds.h"
 #include "user_config.h"
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
 #include <unistd.h>
+#include <xkbcommon/xkbcommon.h>
 
 /// Gets a value from a Lua table (at TABLE_POS). If the type is not VALUE_TYPE,
 /// returns DEFAULT
@@ -22,8 +24,13 @@
 #define LUA_TABLE_TRY_GET_FLOAT(LUA_STATE, TABLE_POS, KEY)                     \
   LUA_TABLE_TRY_GET(LUA_STATE, TABLE_POS, KEY, LUA_TNUMBER, lua_tonumber, -1)
 
-#define LUA_TABLE_TRY_GET_STRING(LUA_STATE, TABLE_POS, KEY) \
+#define LUA_TABLE_TRY_GET_STRING(LUA_STATE, TABLE_POS, KEY)                    \
   LUA_TABLE_TRY_GET(LUA_STATE, TABLE_POS, KEY, LUA_TSTRING, lua_tostring, NULL)
+
+#define SONDE_KEYBIND_MODIFIER_META "sonde.keybind.modifier"
+#define SONDE_KEYBIND_KEY_META "sonde.keybind.key"
+#define SONDE_KEYBIND_KEYS_META "sonde.keybind.keys"
+#define SONDE_KEYBIND_SPECIFIER_META "sonde.keybind.specifier"
 
 /// reset config to initial state, freeing all arrays
 static void sonde_config_reset(struct sonde_config *config) {
@@ -48,7 +55,126 @@ static void sonde_config_reset(struct sonde_config *config) {
   ARRAY_CLEAR(&config->screens);
   ARRAY_CLEAR(&config->keyboards);
 
+  sonde_keybinds_clear(config->keybinds);
+
   free(config->default_terminal);
+}
+
+static int keybind_modifier_or(lua_State *lua_state) {
+  // fetch and validate arguments
+  sonde_keybind_modifiers_t *left = luaL_checkudata(lua_state, 1, SONDE_KEYBIND_MODIFIER_META);
+
+  sonde_keybind_modifiers_t *right = luaL_testudata(lua_state, 2, SONDE_KEYBIND_MODIFIER_META);
+
+  if (right == NULL) {
+    // check if it's a key
+    sonde_keybind_key_t *right = luaL_testudata(lua_state, 2, SONDE_KEYBIND_KEY_META);
+    luaL_argcheck(lua_state, right != NULL, 2, "`sonde.keybind.modifier' or `sonde.keybind.key' expected");
+
+    // mod | key
+
+    struct sonde_keybind_specifier *result = lua_newuserdata(lua_state, sizeof(struct sonde_keybind_specifier));
+    result->key = *right;
+    result->modifiers = *left;
+    
+    // assign the metatable
+    luaL_getmetatable(lua_state, SONDE_KEYBIND_SPECIFIER_META);
+    lua_setmetatable(lua_state, -2);
+    return 1;
+  } else {
+    // mod | mod
+    sonde_keybind_modifiers_t *result = lua_newuserdata(lua_state, sizeof(sonde_keybind_modifiers_t));
+    *result = *left | *right;
+    // assign the metatable
+    luaL_getmetatable(lua_state, SONDE_KEYBIND_MODIFIER_META);
+    lua_setmetatable(lua_state, -2);
+    return 1;
+  }
+}
+
+static const struct luaL_Reg keybind_modifier_metatable[] = {
+  {"__bor", keybind_modifier_or},
+  {NULL, NULL}
+};
+
+static int keybind_keys_index(lua_State *lua_state) {
+  luaL_checktype(lua_state, 1, LUA_TTABLE);
+  const char *key_name = luaL_checkstring(lua_state, 2);
+
+  // lookup this key
+  sonde_keybind_key_t key = xkb_keysym_from_name(key_name, XKB_KEYSYM_CASE_INSENSITIVE);
+  if (key == XKB_KEY_NoSymbol) {
+    return luaL_error(lua_state, "%s is not a valid XKB key name", key_name);
+  }
+
+  // push the key name on (for lua_rawset and lua_rawget)
+  lua_pushstring(lua_state, key_name);
+  lua_pushstring(lua_state, key_name);
+
+  // make the userdatum
+  sonde_keybind_key_t *key_data = lua_newuserdata(lua_state, sizeof(sonde_keybind_key_t));
+  *key_data = key;
+
+  // assign the metatable
+  luaL_getmetatable(lua_state, SONDE_KEYBIND_KEY_META);
+  lua_setmetatable(lua_state, -2);
+
+  // put it in the table (cache it)
+  lua_rawset(lua_state, 1);
+  
+  lua_rawget(lua_state, 1); // push it back onto the stack (return value)
+  
+  return 1;
+}
+
+static const struct luaL_Reg keybind_keys_metatable[] = {
+  { "__index", keybind_keys_index },
+  {NULL, NULL}
+};
+
+/// Initializes the "key" and "mod" global readonly tables, and creates all metatables
+static void init_keybind_globals(struct sonde_config *config) {
+  // modifier metatable
+  luaL_newmetatable(config->lua_state, SONDE_KEYBIND_MODIFIER_META);
+  luaL_setfuncs(config->lua_state, keybind_modifier_metatable, 0);
+  
+  // define the mod global
+  lua_createtable(config->lua_state, 0, 4);
+
+  // convenience macro for:
+  // 1. creating the lua userdata
+  // 2. assigning it the correct bit value
+  // 3. setting its metatable
+#define SONDE_CREATE_KEYBIND_MOD(NAME, BIT)                             \
+  do {                                                                  \
+    sonde_keybind_modifiers_t *mod = lua_newuserdata(config->lua_state, sizeof(sonde_keybind_modifiers_t)); \
+    *mod = 1 << (BIT);                                                  \
+    luaL_getmetatable(config->lua_state, SONDE_KEYBIND_MODIFIER_META);  \
+    lua_setmetatable(config->lua_state, -2);                            \
+    lua_setfield(config->lua_state, -2, #NAME);                         \
+  } while(false)
+
+  SONDE_CREATE_KEYBIND_MOD(SUPER, 0);
+  SONDE_CREATE_KEYBIND_MOD(ALT, 0);
+  SONDE_CREATE_KEYBIND_MOD(SHIFT, 0);
+  SONDE_CREATE_KEYBIND_MOD(CTRL, 0);
+
+#undef SONDE_CREATE_KEYBIND_MOD
+  
+  lua_setglobal(config->lua_state, "mod");  
+
+  // create the key global
+  lua_newtable(config->lua_state);
+  lua_setglobal(config->lua_state, "key");
+  lua_getglobal(config->lua_state, "key"); // for setmetatable
+
+  luaL_newmetatable(config->lua_state, SONDE_KEYBIND_KEYS_META);
+  luaL_setfuncs(config->lua_state, keybind_keys_metatable, 0);
+  
+  lua_setmetatable(config->lua_state, -2);
+  
+  luaL_newmetatable(config->lua_state, SONDE_KEYBIND_SPECIFIER_META);
+  luaL_newmetatable(config->lua_state, SONDE_KEYBIND_KEY_META);
 }
 
 int sonde_config_initialize(struct sonde_config *config) {
@@ -95,6 +221,8 @@ int sonde_config_initialize(struct sonde_config *config) {
     wlr_log(WLR_ERROR, "failed to initialize lua");
   }
   luaL_openlibs(config->lua_state);
+
+  init_keybind_globals(config);
 
   return 0;
 }
@@ -159,15 +287,6 @@ static void update_or_insert_keyboard(struct sonde_config *config, const char *k
   ARRAY_APPEND(&config->keyboards, new_item);
 }
 
-/// Initializes the "key" and "mod" global readonly tables
-static void init_keybind_globals(struct sonde_config *config) {
-  lua_createtable(config->lua_state, 0, 4);
-
-  
-  
-  lua_setglobal(config->lua_state, "key");
-}
-
 /// Initialize the sonde global exposed to lua config
 /// The user sets values on this dict, so it is cleared/reinitalized every time config is reloaded
 static void init_sonde_global(struct sonde_config *config) {
@@ -175,12 +294,16 @@ static void init_sonde_global(struct sonde_config *config) {
   lua_createtable(config->lua_state, 0, 2);
 
   // create screens table. if we have existing screens, preallocate with that
-  lua_createtable(config->lua_state, 0, config->screens.length);
+  lua_createtable(config->lua_state, 0, 0);
   lua_setfield(config->lua_state, -2, "screens"); // table is at -2
 
   // keyboard
-  lua_createtable(config->lua_state, 0, config->keyboards.length);
+  lua_createtable(config->lua_state, 0, 0);
   lua_setfield(config->lua_state, -2, "keyboards"); // table is at -2
+
+  // keybinds
+  lua_createtable(config->lua_state, 0, 0);
+  lua_setfield(config->lua_state, -2, "keybinds"); // table is at -2
 
   lua_setglobal(config->lua_state, "sonde"); // table = "sonde"
 }
@@ -201,7 +324,7 @@ static int exec_lua_config(struct sonde_config *config,
 
   // run
   if (lua_pcall(config->lua_state, 0, LUA_MULTRET, 0)) {
-    wlr_log(WLR_ERROR, "failed to execute lua config %s: %s", filename, lua_tostring(config->lua_state, -1));
+    wlr_log(WLR_ERROR, "failed to execute lua config %s", lua_tostring(config->lua_state, -1));
     lua_settop(config->lua_state, 0);
     return 1;
   }

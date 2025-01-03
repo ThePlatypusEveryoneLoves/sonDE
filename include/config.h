@@ -3,6 +3,7 @@
 #include "user_config.h"
 #include "common.h"
 #include "array.h"
+#include "keybinds.h"
 #include <lua.h>
 
 struct sonde_screen_config {
@@ -25,6 +26,7 @@ struct sonde_keyboard_config {
 struct sonde_config {
   ARRAY(struct sonde_screen_config) screens;
   ARRAY(struct sonde_keyboard_config) keyboards;
+  sonde_keybinds_t keybinds;
 
   // TODO: move this out of the root (it doesn't feel right here)
   char* default_terminal; // nullable

@@ -29,6 +29,14 @@
          should_continue;                                               \
          should_continue = !should_continue)
 
+#define ARRAY_FOREACH_REVERSE(ARRAY, ITEM)                              \
+  for (int should_continue = 1, i = (ARRAY)->length - 1;                \
+       should_continue && i >= 0;                                       \
+       should_continue = !should_continue, i--)                         \
+    for (ITEM = &(ARRAY)->items[i];                                     \
+         should_continue;                                               \
+         should_continue = !should_continue)
+
 #define ARRAY_REALLOC(ARRAY, NEW_CAPACITY, ITEM_SIZE)                   \
   do {                                                                  \
     (ARRAY)->items = realloc((ARRAY)->items, (NEW_CAPACITY) * (ITEM_SIZE)); \
