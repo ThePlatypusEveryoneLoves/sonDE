@@ -28,9 +28,6 @@ struct sonde_config {
   ARRAY(struct sonde_keyboard_config) keyboards;
   sonde_keybinds_t keybinds;
 
-  // TODO: move this out of the root (it doesn't feel right here)
-  char* default_terminal; // nullable
-
   lua_State *lua_state;
   // possible config.lua files, based on the XDG Base dir spec
   char *conf_files[2];

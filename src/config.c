@@ -30,6 +30,7 @@
 #define SONDE_KEYBIND_MODIFIER_META "sonde.keybind.modifier"
 #define SONDE_KEYBIND_KEY_META "sonde.keybind.key"
 #define SONDE_KEYBIND_KEYS_META "sonde.keybind.keys"
+#define SONDE_KEYBIND_COMMAND_META "sonde.keybind.command"
 #define SONDE_KEYBIND_SPECIFIER_META "sonde.keybind.specifier"
 
 /// reset config to initial state, freeing all arrays
@@ -56,8 +57,6 @@ static void reset_config(struct sonde_config *config) {
   ARRAY_CLEAR(&config->keyboards);
 
   sonde_keybinds_clear(config->keybinds);
-
-  free(config->default_terminal);
 }
 
 static int keybind_modifier_or(lua_State *lua_state) {
@@ -132,6 +131,25 @@ static const struct luaL_Reg keybind_keys_metatable[] = {
   {NULL, NULL}
 };
 
+static int keybind_command_launch(lua_State *lua_state) {
+  const char *command_str = luaL_checkstring(lua_state, 1);
+
+  struct sonde_keybind_command *command = lua_newuserdata(lua_state, sizeof(struct sonde_keybind_command));
+  command->data = strdup(command_str);
+  command->type = SONDE_KEYBIND_COMMAND_LAUNCH;
+
+  // assign metatable
+  luaL_getmetatable(lua_state, SONDE_KEYBIND_COMMAND_META);
+  lua_setmetatable(lua_state, -2);
+
+  return 1;
+}
+
+static const struct luaL_Reg keybind_command_fns[] = {
+  { "launch", keybind_command_launch },
+  {NULL, NULL}
+};
+
 /// Initializes the "key" and "mod" global readonly tables, and creates all metatables
 static void init_keybind_globals(struct sonde_config *config) {
   // modifier metatable
@@ -155,9 +173,9 @@ static void init_keybind_globals(struct sonde_config *config) {
   } while(false)
 
   SONDE_CREATE_KEYBIND_MOD(SUPER, 0);
-  SONDE_CREATE_KEYBIND_MOD(ALT, 0);
-  SONDE_CREATE_KEYBIND_MOD(SHIFT, 0);
-  SONDE_CREATE_KEYBIND_MOD(CTRL, 0);
+  SONDE_CREATE_KEYBIND_MOD(SHIFT, 1);
+  SONDE_CREATE_KEYBIND_MOD(ALT, 2);
+  SONDE_CREATE_KEYBIND_MOD(CTRL, 3);
 
 #undef SONDE_CREATE_KEYBIND_MOD
   
@@ -165,16 +183,43 @@ static void init_keybind_globals(struct sonde_config *config) {
 
   // create the key global
   lua_newtable(config->lua_state);
-  lua_setglobal(config->lua_state, "key");
-  lua_getglobal(config->lua_state, "key"); // for setmetatable
-
   luaL_newmetatable(config->lua_state, SONDE_KEYBIND_KEYS_META);
   luaL_setfuncs(config->lua_state, keybind_keys_metatable, 0);
-  
   lua_setmetatable(config->lua_state, -2);
-  
+  lua_setglobal(config->lua_state, "key");
+
+  // create misc metatables
   luaL_newmetatable(config->lua_state, SONDE_KEYBIND_SPECIFIER_META);
   luaL_newmetatable(config->lua_state, SONDE_KEYBIND_KEY_META);
+  luaL_newmetatable(config->lua_state, SONDE_KEYBIND_COMMAND_META);
+
+  // commands table
+  lua_newtable(config->lua_state);
+
+    // convenience macro for:
+  // 1. creating the lua userdata
+  // 2. assigning it the correct bit value
+  // 3. setting its metatable
+#define SONDE_CREATE_KEYBIND_COMMAND(NAME, COMMAND)                             \
+  do {                                                                  \
+    struct sonde_keybind_command *cmd = lua_newuserdata(config->lua_state, sizeof(sonde_keybind_modifiers_t)); \
+    cmd->data = NULL;                                                   \
+    cmd->type = (COMMAND);                                              \
+    luaL_getmetatable(config->lua_state, SONDE_KEYBIND_COMMAND_META);  \
+    lua_setmetatable(config->lua_state, -2);                            \
+    lua_setfield(config->lua_state, -2, #NAME);                         \
+  } while(false)
+
+  SONDE_CREATE_KEYBIND_COMMAND(exit, SONDE_KEYBIND_COMMAND_EXIT);
+  SONDE_CREATE_KEYBIND_COMMAND(next_window, SONDE_KEYBIND_COMMAND_NEXT_VIEW);
+  SONDE_CREATE_KEYBIND_COMMAND(previous_window, SONDE_KEYBIND_COMMAND_PREV_VIEW);
+
+#undef SONDE_CREATE_KEYBIND_COMMAND
+
+  // dynamic commands
+  luaL_setfuncs(config->lua_state, keybind_command_fns, 0);
+
+  lua_setglobal(config->lua_state, "commands");
 }
 
 static void update_or_insert_screen(struct sonde_config *config, const char *screen_name, uint32_t width, uint32_t height, float_t refresh_rate) {
@@ -291,84 +336,98 @@ static int parse_lua_config(struct sonde_config *config) {
   }
 
   // push screens onto the stack
-  if (lua_getfield(config->lua_state, -1, "screens") != LUA_TTABLE) {
-    wlr_log(WLR_ERROR, "lua config: invalid screens type");
-    lua_settop(config->lua_state, 0);
-    return 1;
+  if (lua_getfield(config->lua_state, -1, "screens") == LUA_TTABLE) {
+    // iterate over screens table
+    lua_pushnil(config->lua_state); // "initial value" of the key     -0 +1 = 1
+    while (lua_next(config->lua_state, -2)) { // table is at -2       -1 +2 = 2
+      // lua_next pushes a key and value onto the stack
+
+      int width_t = lua_getfield(config->lua_state, -1, "width");  // -0 +1 = 3
+      int height_t = lua_getfield(config->lua_state, -2, "height");// -0 +1 = 4
+      int refresh_rate_t = lua_getfield(config->lua_state, -3, "refresh_rate"); // -0 +1 = 5
+
+      // low effort way to make sure they're all nums
+      if (width_t == height_t && height_t == refresh_rate_t && width_t == LUA_TNUMBER) {
+        update_or_insert_screen(config,
+                                lua_tostring(config->lua_state, -5),
+                                lua_tointeger(config->lua_state, -3),
+                                lua_tointeger(config->lua_state, -2),
+                                lua_tonumber(config->lua_state, -1)
+                                );
+      } // else ignore
+
+      // pop the value off, as well as width, height, ad refresh rate, leave the key
+      lua_pop(config->lua_state, 4); //                               -4 +0 = 1
+    }
+
+    // pop screens
+    lua_pop(config->lua_state, 1);
   }
 
-  // iterate over screens table
-  lua_pushnil(config->lua_state); // "initial value" of the key     -0 +1 = 1
-  while (lua_next(config->lua_state, -2)) { // table is at -2       -1 +2 = 2
-    // lua_next pushes a key and value onto the stack
+  // keyboards
+  if (lua_getfield(config->lua_state, -1, "keyboards") == LUA_TTABLE) {
+    // iterate over keyboards table
+    lua_pushnil(config->lua_state); // "initial value" of the key     -0 +1 = 1
+    while (lua_next(config->lua_state, -2)) { // table is at -2       -1 +2 = 2
+      // lua_next pushes a key and value onto the stack
 
-    int width_t = lua_getfield(config->lua_state, -1, "width");  // -0 +1 = 3
-    int height_t = lua_getfield(config->lua_state, -2, "height");// -0 +1 = 4
-    int refresh_rate_t = lua_getfield(config->lua_state, -3, "refresh_rate"); // -0 +1 = 5
+      const char *name = lua_tostring(config->lua_state, -2);
 
-    // low effort way to make sure they're all nums
-    if (width_t == height_t && height_t == refresh_rate_t && width_t == LUA_TNUMBER) {
-      update_or_insert_screen(config,
-                              lua_tostring(config->lua_state, -5),
-                              lua_tointeger(config->lua_state, -3),
-                              lua_tointeger(config->lua_state, -2),
-                              lua_tonumber(config->lua_state, -1)
-                              );
-    } // else ignore
+      uint32_t rep_delay = LUA_TABLE_TRY_GET_INT(config->lua_state, -1, "repeat_delay"); // 3
+      uint32_t rep_rate = LUA_TABLE_TRY_GET_INT(config->lua_state, -2, "repeat_rate"); // 4
+      const char *xkb_rules = LUA_TABLE_TRY_GET_STRING(config->lua_state, -3, "xkb_rules"); // 5
+      const char *xkb_model = LUA_TABLE_TRY_GET_STRING(config->lua_state, -4, "xkb_model"); // 6
+      const char *xkb_layout = LUA_TABLE_TRY_GET_STRING(config->lua_state, -5, "xkb_layout"); // 7
+      const char *xkb_variant = LUA_TABLE_TRY_GET_STRING(config->lua_state, -6, "xkb_variant"); // 8
+      const char *xkb_options = LUA_TABLE_TRY_GET_STRING(config->lua_state, -7, "xkb_options"); // 9
 
-    // pop the value off, as well as width, height, ad refresh rate, leave the key
-    lua_pop(config->lua_state, 4); //                               -4 +0 = 1
+      struct sonde_keyboard_config_inner kb_config = {
+        .repeat_delay = rep_delay,
+        .repeat_rate = rep_rate,
+        .keymap = {
+          .rules = xkb_rules,
+          .model = xkb_model,
+          .layout = xkb_layout,
+          .variant = xkb_variant,
+          .options = xkb_options
+        }
+      };
+
+      update_or_insert_keyboard(config, name, kb_config);
+
+      // pop the value off, as well as width, height, ad refresh rate, leave the key
+      lua_pop(config->lua_state, 8); //                               -8 +0 = 1
+    }
+
+    // pop keyboards
+    lua_pop(config->lua_state, 1);
   }
 
-  // pop screens
-  lua_pop(config->lua_state, 1);
+  // keybinds
+  if (lua_getfield(config->lua_state, -1, "keybinds") == LUA_TTABLE) {
+    // iterate over keybinds table
+    lua_pushnil(config->lua_state);
+    while (lua_next(config->lua_state, -2)) {
+      struct sonde_keybind_specifier *specifier = luaL_testudata(config->lua_state, -2, SONDE_KEYBIND_SPECIFIER_META);
+      struct sonde_keybind_command *command = luaL_testudata(config->lua_state, -1, SONDE_KEYBIND_COMMAND_META);
 
-  // push keyboards onto the stack
-  if (lua_getfield(config->lua_state, -1, "keyboards") != LUA_TTABLE) {
-    wlr_log(WLR_ERROR, "lua config: invalid keyboards type");
-    lua_settop(config->lua_state, 0);
-    return 1;
-  }
+      if (specifier != NULL && command != NULL) {
+        struct sonde_keybind keybind = {
+          .key = specifier->key,
+          .command = *command
+        };
 
-  // iterate over keyboards table
-  lua_pushnil(config->lua_state); // "initial value" of the key     -0 +1 = 1
-  while (lua_next(config->lua_state, -2)) { // table is at -2       -1 +2 = 2
-    // lua_next pushes a key and value onto the stack
-
-    const char *name = lua_tostring(config->lua_state, -2);
-
-    uint32_t rep_delay = LUA_TABLE_TRY_GET_INT(config->lua_state, -1, "repeat_delay"); // 3
-    uint32_t rep_rate = LUA_TABLE_TRY_GET_INT(config->lua_state, -2, "repeat_rate"); // 4
-    const char *xkb_rules = LUA_TABLE_TRY_GET_STRING(config->lua_state, -3, "xkb_rules"); // 5
-    const char *xkb_model = LUA_TABLE_TRY_GET_STRING(config->lua_state, -4, "xkb_model"); // 6
-    const char *xkb_layout = LUA_TABLE_TRY_GET_STRING(config->lua_state, -5, "xkb_layout"); // 7
-    const char *xkb_variant = LUA_TABLE_TRY_GET_STRING(config->lua_state, -6, "xkb_variant"); // 8
-    const char *xkb_options = LUA_TABLE_TRY_GET_STRING(config->lua_state, -7, "xkb_options"); // 9
-
-    struct sonde_keyboard_config_inner kb_config = {
-      .repeat_delay = rep_delay,
-      .repeat_rate = rep_rate,
-      .keymap = {
-        .rules = xkb_rules,
-        .model = xkb_model,
-        .layout = xkb_layout,
-        .variant = xkb_variant,
-        .options = xkb_options
+        // TODO: warning messages for duplicate keybinds
+        ARRAY_APPEND(&config->keybinds[specifier->modifiers], keybind);
       }
-    };
+      // TODO: warning messages for invalid stuff
 
-    update_or_insert_keyboard(config, name, kb_config);
+      // pop command
+      lua_pop(config->lua_state, 1);
+    }
 
-    // pop the value off, as well as width, height, ad refresh rate, leave the key
-    lua_pop(config->lua_state, 8); //                               -8 +0 = 1
-  }
-
-  // pop keyboards
-  lua_pop(config->lua_state, 1);
-
-  // default terminal (optional)
-  if (lua_getfield(config->lua_state, -1, "default_terminal") == LUA_TSTRING) {
-    str_replace(&config->default_terminal, lua_tostring(config->lua_state, -1));
+    // pop keybinds
+    lua_pop(config->lua_state, 1);
   }
 
   // clear the stack
