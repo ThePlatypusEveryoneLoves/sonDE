@@ -110,5 +110,5 @@ int sonde_cursor_initialize(sonde_server_t server) {
 
 void sonde_cursor_destroy(sonde_server_t server) {
   wlr_xcursor_manager_destroy(server->cursor_manager);
-  wlr_cursor_destroy(server->cursor);
+  if (server->cursor != NULL) wlr_cursor_destroy(server->cursor);
 }
