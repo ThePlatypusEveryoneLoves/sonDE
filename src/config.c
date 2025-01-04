@@ -202,7 +202,7 @@ static void init_keybind_globals(struct sonde_config *config) {
   // 3. setting its metatable
 #define SONDE_CREATE_KEYBIND_COMMAND(NAME, COMMAND)                             \
   do {                                                                  \
-    struct sonde_keybind_command *cmd = lua_newuserdata(config->lua_state, sizeof(sonde_keybind_modifiers_t)); \
+    struct sonde_keybind_command *cmd = lua_newuserdata(config->lua_state, sizeof(struct sonde_keybind_command)); \
     cmd->data = NULL;                                                   \
     cmd->type = (COMMAND);                                              \
     luaL_getmetatable(config->lua_state, SONDE_KEYBIND_COMMAND_META);  \
