@@ -3,6 +3,7 @@
 #include "server.h"
 #include "user_config.h"
 #include "xdg-shell.h"
+#include "keybinds.h"
 #include <unistd.h>
 #include <xkbcommon/xkbcommon.h>
 
@@ -19,37 +20,29 @@ WL_CALLBACK(on_keyboard_modifiers) {
 }
 
 // handle WM keybindings!!
-// returns true if handled
-// TODO: custom keybindings
-static bool handle_wm_keybinding(sonde_server_t server, xkb_keysym_t key) {
-  switch (key) {
-  case XKB_KEY_Escape:
+static void handle_command(sonde_server_t server, struct sonde_keybind_command *command) {
+  switch (command->type) {
+  case SONDE_KEYBIND_COMMAND_EXIT:
     wl_display_terminate(server->display);
     break;
-  case XKB_KEY_Tab:
+  case SONDE_KEYBIND_COMMAND_NEXT_VIEW:
     // get next toplevel
     if (wl_list_length(&server->views) < 2) break;
 
     sonde_view_t next_view = wl_container_of(server->views.prev, next_view, link);
     sonde_view_focus(next_view);
     break;
-  case XKB_KEY_Return:
-    // open terminal
+  case SONDE_KEYBIND_COMMAND_LAUNCH:
+    // launch specified command
 
-    if (server->config.default_terminal != NULL) {
+    if (command->data != NULL) {
       if (fork() == 0) {
-        execlp(server->config.default_terminal, server->config.default_terminal, NULL);
+        execl("/bin/sh", "/bin/sh", "-c", command->data, NULL);
       }
     }
     break;
-
-  case XKB_KEY_UP:
-
-    break; 
-  default:
-    return false;
+  default:;
   }
-  return true;
 }
 
 WL_CALLBACK(on_keyboard_key) {
@@ -62,25 +55,24 @@ WL_CALLBACK(on_keyboard_key) {
   // get the pressed keys
   const xkb_keysym_t *pressed_syms;
   int num_syms = xkb_state_key_get_syms(sonde_keyboard->keyboard->xkb_state, keycode, &pressed_syms);
-
-  bool handled = false;
   uint32_t modifiers = wlr_keyboard_get_modifiers(sonde_keyboard->keyboard);
 
-  // Super = WM keybinding
-  if ((modifiers & WLR_MODIFIER_ALT) && event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
+  // Try WM keybindings
+  if (event->state == WL_KEYBOARD_KEY_STATE_PRESSED) {
     for (int i = 0; i < num_syms; i++) {
       // try to process as a WM keybinding
-      if ((handled = handle_wm_keybinding(sonde_keyboard->server, pressed_syms[i]))) {
-        break;
+      struct sonde_keybind_command *command = sonde_keybind_find(sonde_keyboard->server->config.keybinds, modifiers, pressed_syms[i]);
+      if (command != NULL) {
+        // handle command
+        handle_command(sonde_keyboard->server, command);
+        return;
       }
     }
   }
 
   // passthrough
-  if (!handled) {
-    wlr_seat_set_keyboard(sonde_keyboard->server->seat, sonde_keyboard->keyboard);
-    wlr_seat_keyboard_notify_key(sonde_keyboard->server->seat, event->time_msec, event->keycode, event->state);
-  }
+  wlr_seat_set_keyboard(sonde_keyboard->server->seat, sonde_keyboard->keyboard);
+  wlr_seat_keyboard_notify_key(sonde_keyboard->server->seat, event->time_msec, event->keycode, event->state);
 }
 
 WL_CALLBACK(on_keyboard_destroy) {

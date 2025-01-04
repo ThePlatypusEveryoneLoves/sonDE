@@ -15,8 +15,8 @@ int sonde_server_create(sonde_server_t server) {
   }
 
   if (sonde_config_reload(&server->config) != 0) {
-    wlr_log(WLR_ERROR, "failed to execute lua config");
-    return 1;
+    wlr_log(WLR_ERROR, "failed to execute lua config; continuing with setup");
+    //return 1;
   }
   
   server->display = wl_display_create();
