@@ -85,5 +85,5 @@ void sonde_view_focus(sonde_view_t sonde_view) {
 
   // apply (or unapply) the pointer constraint
   struct wlr_pointer_constraint_v1 *pointer_constraint = wlr_pointer_constraints_v1_constraint_for_surface(sonde_view->server->pointer_constraints, target_surface, sonde_view->server->seat);
-  sonde_cursor_apply_pointer_constraint(sonde_view->server, pointer_constraint);
+  sonde_cursor_set_pointer_constraint(sonde_view->server, pointer_constraint);
 }
