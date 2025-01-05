@@ -10,27 +10,35 @@ SRCS:=$(wildcard src/*.c)
 OBJS:=$(patsubst src/%.c,bin/objects/%.o,$(SRCS))
 HEADERS:=$(wildcard include/*.h)
 
-all: bin/sonde
-
-bin:
-	mkdir -p bin/objects
-
 # wayland-scanner is a tool which generates C headers and rigging for Wayland
 # protocols, which are specified in XML. wlroots requires you to rig these up
 # to your build system yourself and provide them in the include path.
-include/xdg-shell-protocol.h:
-	$(WAYLAND_SCANNER) server-header $(WAYLAND_PROTOCOLS)/stable/xdg-shell/xdg-shell.xml $@
+PROTOCOL_HEADERS=xdg-shell-protocol.h pointer-constraints-unstable-v1-protocol.h
+PROTOCOL_HEADER_PATHS=$(addprefix include/protocols/,$(PROTOCOL_HEADERS))
 
-include/pointer-constraints-unstable-v1-protocol.h:
-	$(WAYLAND_SCANNER) server-header $(WAYLAND_PROTOCOLS)/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml $@
+all: bin/sonde
 
-bin/objects/%.o: src/%.c include/xdg-shell-protocol.h include/pointer-constraints-unstable-v1-protocol.h $(HEADERS) | bin
-	$(CC) -c $< -g -Werror $(CFLAGS) -DDEBUG_LOG -fsanitize=address -Iinclude -DWLR_USE_UNSTABLE -o $@
+include/protocols:
+	mkdir -p include/protocols
+
+define WAYLAND_PROTOCOL_RULE
+include/protocols/$(1): $(WAYLAND_PROTOCOLS)/$(2) | include/protocols
+	$(WAYLAND_SCANNER) server-header $$^ $$@
+endef
+
+bin/objects:
+	mkdir -p bin/objects
+
+$(eval $(call WAYLAND_PROTOCOL_RULE,xdg-shell-protocol.h,stable/xdg-shell/xdg-shell.xml))
+$(eval $(call WAYLAND_PROTOCOL_RULE,pointer-constraints-unstable-v1-protocol.h,unstable/pointer-constraints/pointer-constraints-unstable-v1.xml))
+
+bin/objects/%.o: src/%.c $(PROTOCOL_HEADER_PATHS) $(HEADERS) | bin/objects
+	$(CC) -c $< -g -Werror $(CFLAGS) -DDEBUG_LOG -fsanitize=address -Iinclude -Iinclude/protocols -DWLR_USE_UNSTABLE -o $@
 
 bin/sonde: $(OBJS)
 	$(CC) $^ $> -g -Werror -DDEBUG_LOG $(CFLAGS) -fsanitize=address $(LDFLAGS) $(LIBS) -o $@
 
 clean:
-	rm -rf bin include/xdg-shell-protocol.h
+	rm -rf bin include/protocols/
 
 .PHONY: all clean
