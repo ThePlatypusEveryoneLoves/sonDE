@@ -1,6 +1,8 @@
 #include "xdg-shell.h"
 #include "common.h"
 #include "view.h"
+#include "decorations.h"
+#include "decoration-manager.h"
 #include <assert.h>
 
 WL_CALLBACK(on_toplevel_map) {
@@ -8,7 +10,13 @@ WL_CALLBACK(on_toplevel_map) {
 
   // insert into server toplevels list
   wl_list_insert(&sonde_view->server->views, &sonde_view->link);
+
+  // decorate
+  sonde_apply_decorations(sonde_view->decoration);
+  
   sonde_view_focus(sonde_view);
+
+  wlr_log(WLR_DEBUG, "LIFECYCLE %s map", sonde_xdg_view_from_sonde_view(sonde_view)->toplevel->app_id);
 }
 
 WL_CALLBACK(on_toplevel_unmap) {
@@ -17,6 +25,8 @@ WL_CALLBACK(on_toplevel_unmap) {
   // TODO: reset cursor mode if this was being grabbed
 
   wl_list_remove(&sonde_view->link);
+
+  wlr_log(WLR_DEBUG, "LIFECYCLE %s unmap", sonde_xdg_view_from_sonde_view(sonde_view)->toplevel->app_id);
 }
 
 WL_CALLBACK(on_toplevel_commit) {
@@ -76,8 +86,9 @@ WL_CALLBACK(on_new_toplevel) {
   sonde_xdg_view_t sonde_xdg_view = calloc(1, sizeof(*sonde_xdg_view));
   sonde_xdg_view->base.server = server;
   sonde_xdg_view->toplevel = toplevel;
-  sonde_xdg_view->base.scene_tree =
-      wlr_scene_xdg_surface_create(&server->scene->tree, toplevel->base);
+  sonde_xdg_view->base.scene_tree = wlr_scene_tree_create(&server->scene->tree);
+  // create toplevel surface tree
+  sonde_xdg_view->base.surface_scene_tree = wlr_scene_xdg_surface_create(sonde_xdg_view->base.scene_tree, toplevel->base);
   // set the data field on the scene tree node
   sonde_xdg_view->base.scene_tree->node.data = sonde_xdg_view;
   sonde_xdg_view->base.surface = toplevel->base->surface;
@@ -103,16 +114,6 @@ WL_CALLBACK(on_new_toplevel) {
   LISTEN(&toplevel->events.request_fullscreen,
          &sonde_xdg_view->base.request_fullscreen,
          on_toplevel_request_fullscreen);
-  float bg_color[4] = {0.2, 0.2, 0.2, 1.0}; // Dark gray
-   struct wlr_scene_buffer *scene_buffer = wlr_scene_buffer_from_node(&sonde_xdg_view->base.scene_tree->node);
-  struct wlr_scene_surface *scene_surface =
-      wlr_scene_surface_try_from_buffer(scene_buffer);
-sonde_xdg_view->base.rect = wlr_scene_rect_create(
-      sonde_xdg_view->base.scene_tree, scene_buffer->buffer_width, 100, bg_color);
- 
-  wlr_scene_node_set_position(&sonde_xdg_view->base.rect->node, 0, -30);
-  wlr_scene_node_set_position(&sonde_xdg_view->base.scene_tree->node, 20, 30);
-  // struct wlr_scene_node tree_node = sonde_xdg_view->base.scene_tree->node;
 }
 
 WL_CALLBACK(on_popup_commit) {

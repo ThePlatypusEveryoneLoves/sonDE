@@ -19,8 +19,10 @@ struct sonde_view {
   struct wl_listener map;
   struct wl_listener unmap;
 
-  struct wlr_scene_rect *rect;
+  struct sonde_xdg_decoration *decoration;
+
   struct wlr_scene_tree *scene_tree;
+  struct wlr_scene_tree *surface_scene_tree;
   struct wlr_surface *surface;
   enum {
     SONDE_XDG,

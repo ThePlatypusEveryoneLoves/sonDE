@@ -29,3 +29,10 @@ static inline sonde_xdg_view_t sonde_xdg_view_from_sonde_view(sonde_view_t sonde
   sonde_xdg_view_t sonde_xdg_view = wl_container_of(sonde_view, sonde_xdg_view, base);
   return sonde_xdg_view;
 }
+
+static inline sonde_xdg_view_t sonde_xdg_view_from_wlr_xdg_toplevel(struct wlr_xdg_toplevel *toplevel) {
+  struct wlr_scene_tree *scene_tree = toplevel->base->data;
+  sonde_xdg_view_t sonde_xdg_view = scene_tree->node.data;
+  return sonde_xdg_view;
+}
+

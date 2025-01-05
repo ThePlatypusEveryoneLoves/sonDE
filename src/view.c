@@ -1,5 +1,6 @@
 #include "view.h"
 #include "xdg-shell.h"
+#include "decorations.h"
 
 sonde_view_t sonde_view_at(sonde_server_t server, double lx,
                                          double ly,
@@ -43,8 +44,13 @@ void sonde_view_focus(sonde_view_t sonde_view) {
     // deactivate focus
     struct wlr_xdg_toplevel *current_toplevel =
         wlr_xdg_toplevel_try_from_wlr_surface(current_surface);
-    if (current_toplevel != NULL)
+    if (current_toplevel != NULL) {
       wlr_xdg_toplevel_set_activated(current_toplevel, false);
+
+      // get the sonde_xdg_view
+      sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_wlr_xdg_toplevel(current_toplevel);
+      sonde_decoration_set_focus(sonde_xdg_view->base.decoration, false);
+    }
   }
 
   // move to front
@@ -65,6 +71,8 @@ void sonde_view_focus(sonde_view_t sonde_view) {
     // wlr_xwayalnd_surface_offer_focus
   }
   #endif
+
+  sonde_decoration_set_focus(sonde_view->decoration, true);
 
   // move keyboard focus
   struct wlr_keyboard *keyboard =

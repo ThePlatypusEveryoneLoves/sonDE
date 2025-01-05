@@ -27,9 +27,6 @@ WL_CALLBACK(on_decoration_request_mode) {
     client_mode = WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE;
   
   sonde_xdg_decoration->client_mode = client_mode;
-
-  // apply SSD
-  sonde_apply_decorations(sonde_xdg_decoration);
 }
 
 WL_CALLBACK(on_decoration_destroy) {
@@ -56,11 +53,10 @@ WL_CALLBACK(on_new_toplevel_decoration) {
   // create the sonde_decoration
   struct sonde_xdg_decoration *sonde_xdg_decoration = calloc(1, sizeof(*sonde_xdg_decoration));
   sonde_xdg_decoration->xdg_decoration = xdg_decoration;
-  // we set the data field of the wlr_xdg_surface to the scene tree
-  struct wlr_scene_tree *scene_tree = xdg_surface->data;
-  // the data field of the scene tree is the sonde_xdg_toplevel
-  sonde_xdg_view_t sonde_xdg_view = scene_tree->node.data;
+  
+  sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_wlr_xdg_toplevel(xdg_decoration->toplevel);
   sonde_xdg_decoration->sonde_xdg_view = sonde_xdg_view;
+  sonde_xdg_view->base.decoration = sonde_xdg_decoration; // double link
 
   // events
   LISTEN(&xdg_decoration->events.request_mode, &sonde_xdg_decoration->request_mode, on_decoration_request_mode);
