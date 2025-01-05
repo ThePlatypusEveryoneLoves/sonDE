@@ -12,7 +12,7 @@ WL_CALLBACK(on_toplevel_map) {
   wl_list_insert(&sonde_view->server->views, &sonde_view->link);
 
   // decorate
-  sonde_apply_decorations(sonde_view->decoration);
+  sonde_apply_decorations(&sonde_view->decoration);
   
   sonde_view_focus(sonde_view);
 
@@ -45,6 +45,10 @@ WL_CALLBACK(on_toplevel_commit) {
 WL_CALLBACK(on_toplevel_destroy) {
   sonde_view_t sonde_view = wl_container_of(listener, sonde_view, destroy);
   sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(sonde_view);
+
+  wlr_scene_node_destroy(&sonde_view->scene_tree->node);
+
+  sonde_decoration_destroy(&sonde_view->decoration);
 
   wl_list_remove(&sonde_view->map.link);
   wl_list_remove(&sonde_view->unmap.link);

@@ -1,5 +1,6 @@
 #include "decoration-manager.h"
 #include "decorations.h"
+#include "xdg-shell.h"
 
 WL_CALLBACK(on_decoration_surface_commit) {
   struct sonde_xdg_decoration *sonde_xdg_decoration = wl_container_of(listener, sonde_xdg_decoration, surface_commit);
@@ -31,13 +32,7 @@ WL_CALLBACK(on_decoration_request_mode) {
 
 WL_CALLBACK(on_decoration_destroy) {
   struct sonde_xdg_decoration *sonde_xdg_decoration = wl_container_of(listener, sonde_xdg_decoration, destroy);
-  wl_list_remove(&sonde_xdg_decoration->destroy.link);
-  wl_list_remove(&sonde_xdg_decoration->request_mode.link);
-  // remove commit listener if we haven't already
-  if (sonde_xdg_decoration->surface_commit.notify != NULL) {
-    wl_list_remove(&sonde_xdg_decoration->surface_commit.link);
-  }
-  free(sonde_xdg_decoration);
+  sonde_decoration_destroy(sonde_xdg_decoration);
 }
 
 WL_CALLBACK(on_new_toplevel_decoration) {
@@ -50,13 +45,11 @@ WL_CALLBACK(on_new_toplevel_decoration) {
     return;
   }
 
-  // create the sonde_decoration
-  struct sonde_xdg_decoration *sonde_xdg_decoration = calloc(1, sizeof(*sonde_xdg_decoration));
-  sonde_xdg_decoration->xdg_decoration = xdg_decoration;
-  
   sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_wlr_xdg_toplevel(xdg_decoration->toplevel);
-  sonde_xdg_decoration->sonde_xdg_view = sonde_xdg_view;
-  sonde_xdg_view->base.decoration = sonde_xdg_decoration; // double link
+
+  // initialize the sonde_decoration events
+  struct sonde_xdg_decoration *sonde_xdg_decoration = &sonde_xdg_view->base.decoration;
+  sonde_xdg_decoration->xdg_decoration = xdg_decoration;
 
   // events
   LISTEN(&xdg_decoration->events.request_mode, &sonde_xdg_decoration->request_mode, on_decoration_request_mode);

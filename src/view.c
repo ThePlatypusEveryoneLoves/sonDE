@@ -49,7 +49,7 @@ void sonde_view_focus(sonde_view_t sonde_view) {
 
       // get the sonde_xdg_view
       sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_wlr_xdg_toplevel(current_toplevel);
-      sonde_decoration_set_focus(sonde_xdg_view->base.decoration, false);
+      sonde_decoration_set_focus(&sonde_xdg_view->base.decoration, false);
     }
   }
 
@@ -72,7 +72,7 @@ void sonde_view_focus(sonde_view_t sonde_view) {
   }
   #endif
 
-  sonde_decoration_set_focus(sonde_view->decoration, true);
+  sonde_decoration_set_focus(&sonde_view->decoration, true);
 
   // move keyboard focus
   struct wlr_keyboard *keyboard =

@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "server.h"
+#include "decorations.h"
 
 struct sonde_view {
   sonde_server_t server;
@@ -19,7 +20,7 @@ struct sonde_view {
   struct wl_listener map;
   struct wl_listener unmap;
 
-  struct sonde_xdg_decoration *decoration;
+  struct sonde_xdg_decoration decoration;
 
   struct wlr_scene_tree *scene_tree;
   struct wlr_scene_tree *surface_scene_tree;
