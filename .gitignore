@@ -1,4 +1,5 @@
 bin/
 xdg-shell-protocol.h
+pointer-constraints-unstable-v1-protocol.h
 compile_commands.json
 .cache/

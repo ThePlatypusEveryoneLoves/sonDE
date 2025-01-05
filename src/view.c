@@ -1,4 +1,5 @@
 #include "view.h"
+#include "cursor.h"
 #include "xdg-shell.h"
 #include "decorations.h"
 
@@ -81,4 +82,8 @@ void sonde_view_focus(sonde_view_t sonde_view) {
     wlr_seat_keyboard_notify_enter(
         sonde_view->server->seat, target_surface, keyboard->keycodes,
         keyboard->num_keycodes, &keyboard->modifiers);
+
+  // apply (or unapply) the pointer constraint
+  struct wlr_pointer_constraint_v1 *pointer_constraint = wlr_pointer_constraints_v1_constraint_for_surface(sonde_view->server->pointer_constraints, target_surface, sonde_view->server->seat);
+  sonde_cursor_apply_pointer_constraint(sonde_view->server, pointer_constraint);
 }

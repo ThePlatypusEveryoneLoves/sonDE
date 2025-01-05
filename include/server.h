@@ -50,12 +50,15 @@ struct sonde_server {
   // cursor
   struct wlr_cursor *cursor;
   enum sonde_cursor_mode cursor_mode;
+  struct wlr_pointer_constraints_v1 *pointer_constraints;
+  struct wlr_pointer_constraint_v1 *current_pointer_constraint;
   struct wlr_xcursor_manager *cursor_manager;
   struct wl_listener cursor_motion;
   struct wl_listener cursor_motion_absolute;
   struct wl_listener cursor_button;
   struct wl_listener cursor_axis;
   struct wl_listener cursor_frame;
+  struct wl_listener new_pointer_constraint;
 
   const char *socket;
 };

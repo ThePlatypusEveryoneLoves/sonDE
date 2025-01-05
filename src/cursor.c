@@ -84,6 +84,88 @@ WL_CALLBACK(on_cursor_frame) {
   wlr_seat_pointer_notify_frame(server->seat);
 }
 
+/// warp on unlock, if a cursor hint exists
+/// (the cursor hint represents where the user sees the cursor (the application might draw their own cursor))
+/// we have to warp to this cursor hint to maintain consistency
+void warp_unlock_pointer(
+  struct sonde_pointer_constraint *sonde_pointer_constraint) {
+  sonde_server_t server = sonde_pointer_constraint->server;
+  struct wlr_seat *seat = server->seat;
+  struct wlr_pointer_constraint_v1_state *pointer_constraint = &sonde_pointer_constraint->pointer_constraint->current;
+  struct wlr_surface *current_surface = seat->pointer_state.focused_surface;
+  
+  if ((pointer_constraint->committed & WLR_POINTER_CONSTRAINT_V1_STATE_CURSOR_HINT) && current_surface != NULL) {
+    // warp the cursor
+    // note: cursor_hint gives surface-local coords
+    struct wlr_box surface_coords;
+    wlr_surface_get_extends(current_surface, &surface_coords);
+    wlr_cursor_warp(
+      server->cursor, NULL,
+      surface_coords.x + pointer_constraint->cursor_hint.x,
+      surface_coords.y + pointer_constraint->cursor_hint.y);
+    
+    // change the internal pointer position
+    wlr_seat_pointer_warp(
+      seat,pointer_constraint->cursor_hint.x, pointer_constraint->cursor_hint.y);  
+  }
+}
+
+void sonde_cursor_apply_pointer_constraint(
+  sonde_server_t server,
+  struct wlr_pointer_constraint_v1 *pointer_constraint) {
+  // no change
+  if (server->current_pointer_constraint == pointer_constraint) return;
+
+  // deactivate current
+  if (server->current_pointer_constraint) {
+    // warp unlock if unsetting
+    if (pointer_constraint == NULL)
+      warp_unlock_pointer(server->current_pointer_constraint->data);
+    
+    // deactivate current pointer constraint
+    wlr_pointer_constraint_v1_send_deactivated(server->current_pointer_constraint);
+  }
+
+  if (pointer_constraint != NULL)
+    wlr_pointer_constraint_v1_send_activated(pointer_constraint);
+  
+  server->current_pointer_constraint = pointer_constraint;
+}
+
+WL_CALLBACK(on_pointer_constraint_destroy) {
+  struct sonde_pointer_constraint *sonde_pointer_constraint = wl_container_of(listener, sonde_pointer_constraint, destroy);
+
+  wl_list_remove(&sonde_pointer_constraint->destroy.link);
+
+  // clear the current pointer constraint if needed
+  if (sonde_pointer_constraint->server->current_pointer_constraint == sonde_pointer_constraint->pointer_constraint) {
+    sonde_pointer_constraint->server->current_pointer_constraint = NULL;
+
+    warp_unlock_pointer(sonde_pointer_constraint);
+  }
+
+  free(sonde_pointer_constraint);
+}
+
+WL_CALLBACK(on_new_pointer_constraint) {
+  struct wlr_pointer_constraint_v1 *pointer_constraint = data;
+  sonde_server_t server = wl_container_of(listener, server, new_pointer_constraint);
+
+  struct sonde_pointer_constraint *sonde_pointer_constraint = calloc(1, sizeof(*sonde_pointer_constraint));
+
+  sonde_pointer_constraint->pointer_constraint = pointer_constraint;
+  sonde_pointer_constraint->server = server;
+  // set the data field to the sonde_pointer_constraint
+  pointer_constraint->data = sonde_pointer_constraint;
+
+  LISTEN(&pointer_constraint->events.destroy, &sonde_pointer_constraint->destroy, on_pointer_constraint_destroy);
+
+  // if this is focused, apply constraint
+  if (server->seat->pointer_state.focused_surface == pointer_constraint->surface) {
+    sonde_cursor_apply_pointer_constraint(server, pointer_constraint);
+  }
+}
+
 int sonde_cursor_initialize(sonde_server_t server) {
   server->cursor = wlr_cursor_create();
   if (server->cursor == NULL) {
@@ -99,11 +181,19 @@ int sonde_cursor_initialize(sonde_server_t server) {
 
   server->cursor_mode = SONDE_CURSOR_PASSTHROUGH;
 
+  // pointer constraints
+  server->pointer_constraints = wlr_pointer_constraints_v1_create(server->display);
+  if (server->pointer_constraints == NULL) {
+    return 1;
+  }
+
   LISTEN(&server->cursor->events.motion, &server->cursor_motion, on_cursor_motion);
   LISTEN(&server->cursor->events.motion_absolute, &server->cursor_motion_absolute, on_cursor_motion_absolute);
   LISTEN(&server->cursor->events.button, &server->cursor_button, on_cursor_button);
   LISTEN(&server->cursor->events.axis, &server->cursor_axis, on_cursor_axis);
   LISTEN(&server->cursor->events.frame, &server->cursor_frame, on_cursor_frame);
+
+  LISTEN(&server->pointer_constraints->events.new_constraint, &server->new_pointer_constraint, on_new_pointer_constraint);
 
   return 0;
 }

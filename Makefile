@@ -21,7 +21,10 @@ bin:
 include/xdg-shell-protocol.h:
 	$(WAYLAND_SCANNER) server-header $(WAYLAND_PROTOCOLS)/stable/xdg-shell/xdg-shell.xml $@
 
-bin/objects/%.o: src/%.c include/xdg-shell-protocol.h $(HEADERS) | bin
+include/pointer-constraints-unstable-v1-protocol.h:
+	$(WAYLAND_SCANNER) server-header $(WAYLAND_PROTOCOLS)/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml $@
+
+bin/objects/%.o: src/%.c include/xdg-shell-protocol.h include/pointer-constraints-unstable-v1-protocol.h $(HEADERS) | bin
 	$(CC) -c $< -g -Werror $(CFLAGS) -DDEBUG_LOG -fsanitize=address -Iinclude -DWLR_USE_UNSTABLE -o $@
 
 bin/sonde: $(OBJS)
