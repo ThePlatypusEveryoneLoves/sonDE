@@ -13,6 +13,7 @@ struct sonde_xdg_decoration {
 
   // titlebar
   struct sonde_cairo_buffer *titlebar;
+  struct wlr_scene_buffer *titlebar_node;
   PangoLayout *titlebar_pango;
 
   // events
@@ -27,6 +28,5 @@ void sonde_decoration_set_focus(
 void sonde_decoration_destroy(
   struct sonde_xdg_decoration *sonde_xdg_decoration);
 void sonde_decoration_update_title(
-  struct sonde_xdg_decoration *decoration,
-  const char *title);
+  struct sonde_xdg_decoration *decoration);
 

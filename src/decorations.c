@@ -7,7 +7,7 @@
 #include "view.h"
 #include "xdg-shell.h"
 
-static inline sonde_view_t sonde_xdg_view_from_sonde_xdg_decoration(
+static inline sonde_view_t sonde_view_from_sonde_xdg_decoration(
     struct sonde_xdg_decoration *decoration) {
   sonde_view_t view = wl_container_of(decoration, view, decoration);
   return view;
@@ -20,7 +20,7 @@ void sonde_apply_decorations(struct sonde_xdg_decoration *decoration) {
     decoration->client_mode = WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE;
   }
   
-  sonde_view_t view = sonde_xdg_view_from_sonde_xdg_decoration(decoration);
+  sonde_view_t view = sonde_view_from_sonde_xdg_decoration(decoration);
   sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(view);
   sonde_server_t server = view->server;
 
@@ -55,10 +55,11 @@ void sonde_apply_decorations(struct sonde_xdg_decoration *decoration) {
 
     // titlebar
     decoration->titlebar = sonde_cairo_buffer_create(titlebar_width, titlebar_height);
-    wlr_scene_node_set_position(
-      &wlr_scene_buffer_create(
+    decoration->titlebar_node = wlr_scene_buffer_create(
         decoration->scene_tree,
-        &decoration->titlebar->buffer)->node,
+        &decoration->titlebar->buffer);
+    wlr_scene_node_set_position(
+      &decoration->titlebar_node->node,
       5, 2);
     decoration->titlebar_pango = pango_cairo_create_layout(decoration->titlebar->cairo);
 
@@ -68,22 +69,31 @@ void sonde_apply_decorations(struct sonde_xdg_decoration *decoration) {
     pango_layout_set_font_description(decoration->titlebar_pango, desc);
     pango_font_description_free(desc);
 
-    sonde_decoration_update_title(decoration, sonde_xdg_view->toplevel->title);
+    sonde_decoration_update_title(decoration);
   }
 }
 
-void sonde_decoration_update_title(struct sonde_xdg_decoration *decoration,
-                                   const char *title) {
-  // TODO: clear
+void sonde_decoration_update_title(struct sonde_xdg_decoration *decoration) {
+  const char *title = sonde_xdg_view_from_sonde_view(sonde_view_from_sonde_xdg_decoration(decoration))->toplevel->title;
+
+  // not ready yet
+  if (decoration->titlebar == NULL) return;
+
+  cairo_save(decoration->titlebar->cairo);
+  cairo_set_operator(decoration->titlebar->cairo, CAIRO_OPERATOR_CLEAR);
+  cairo_paint(decoration->titlebar->cairo);
+  cairo_restore(decoration->titlebar->cairo);
+  
   cairo_set_source_rgb(decoration->titlebar->cairo, 0, 0, 0);
   pango_layout_set_text(decoration->titlebar_pango, title, -1);
   pango_cairo_show_layout(decoration->titlebar->cairo, decoration->titlebar_pango);
   cairo_surface_flush(decoration->titlebar->cairo_surface);
+  wlr_scene_buffer_set_buffer(decoration->titlebar_node, &decoration->titlebar->buffer);
 }
 
 void sonde_decoration_set_focus(struct sonde_xdg_decoration *decoration,
                                 bool focused) {
-  sonde_view_t view = sonde_xdg_view_from_sonde_xdg_decoration(decoration);
+  sonde_view_t view = sonde_view_from_sonde_xdg_decoration(decoration);
   sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(view);
 
   // TODO: config
@@ -96,25 +106,20 @@ void sonde_decoration_set_focus(struct sonde_xdg_decoration *decoration,
 
 void sonde_decoration_destroy(
     struct sonde_xdg_decoration *sonde_xdg_decoration) {
+  // we use titlebar as a "marker" for whether this has been destroyed
   if (sonde_xdg_decoration->titlebar != NULL) {
-    g_object_unref(sonde_xdg_decoration->titlebar_pango);
-    sonde_cairo_buffer_destroy(sonde_xdg_decoration->titlebar);
     sonde_xdg_decoration->titlebar = NULL;
-  }
-  if (sonde_xdg_decoration->destroy.notify != NULL) {
-    wl_list_remove(&sonde_xdg_decoration->destroy.link);
-    sonde_xdg_decoration->destroy.notify = NULL;
-  }
-  if (sonde_xdg_decoration->request_mode.notify != NULL) {
-    wl_list_remove(&sonde_xdg_decoration->request_mode.link);
-    sonde_xdg_decoration->request_mode.notify = NULL;
-  }
-  // remove commit listener if we haven't already
-  if (sonde_xdg_decoration->surface_commit.notify != NULL) {
-    wl_list_remove(&sonde_xdg_decoration->surface_commit.link);
-    sonde_xdg_decoration->surface_commit.notify = NULL;
-  }
+    sonde_cairo_buffer_destroy(sonde_xdg_decoration->titlebar);
+    g_object_unref(sonde_xdg_decoration->titlebar_pango);
 
-  // destroy the entire scene tree
-  wlr_scene_node_destroy(&sonde_xdg_decoration->scene_tree->node);
+    // these could be null if they were never set (non xdg decoration), or unset already
+    if (sonde_xdg_decoration->destroy.notify != NULL)
+      wl_list_remove(&sonde_xdg_decoration->destroy.link);
+    if (sonde_xdg_decoration->request_mode.notify != NULL)
+      wl_list_remove(&sonde_xdg_decoration->request_mode.link);
+    if (sonde_xdg_decoration->surface_commit.notify != NULL)
+      wl_list_remove(&sonde_xdg_decoration->surface_commit.link);
+    // destroy the entire scene tree
+    wlr_scene_node_destroy(&sonde_xdg_decoration->scene_tree->node);
+  }
 }

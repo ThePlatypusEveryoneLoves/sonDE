@@ -18,6 +18,10 @@ static bool impl_begin(
   struct wlr_buffer *buffer,
   uint32_t flags, void **data,
   uint32_t *format, size_t *stride) {
+  if (flags & WLR_BUFFER_DATA_PTR_ACCESS_WRITE) {
+		return false;
+	}
+  
   struct sonde_cairo_buffer *sonde_buffer = sonde_cairo_buffer_from_wlr_buffer(buffer);
   // set stride/format
   *stride = cairo_image_surface_get_stride(sonde_buffer->cairo_surface);
@@ -49,6 +53,8 @@ struct sonde_cairo_buffer *sonde_cairo_buffer_create(int width, int height) {
   wlr_buffer_init(&sonde_buffer->buffer, &sonde_cairo_buffer_impl, width, height);
 
   sonde_buffer->cairo = cairo_create(sonde_buffer->cairo_surface);
+
+  wlr_log(WLR_DEBUG, "LIFECYCLE: new buffer");
 
   return sonde_buffer;
 }

@@ -80,6 +80,12 @@ WL_CALLBACK(on_toplevel_request_fullscreen) {
       wl_container_of(listener, sonde_view, request_fullscreen);
 }
 
+WL_CALLBACK(on_toplevel_set_title) {
+  sonde_view_t sonde_view =
+      wl_container_of(listener, sonde_view, set_title);
+  sonde_decoration_update_title(&sonde_view->decoration);
+}
+
 WL_CALLBACK(on_new_toplevel) {
   sonde_server_t server = wl_container_of(listener, server, new_toplevel);
 
@@ -117,6 +123,9 @@ WL_CALLBACK(on_new_toplevel) {
   LISTEN(&toplevel->events.request_fullscreen,
          &sonde_xdg_view->base.request_fullscreen,
          on_toplevel_request_fullscreen);
+  LISTEN(&toplevel->events.set_title,
+         &sonde_xdg_view->base.set_title,
+         on_toplevel_set_title);
 }
 
 WL_CALLBACK(on_popup_commit) {
