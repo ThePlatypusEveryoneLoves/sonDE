@@ -1,4 +1,9 @@
 #include "decorations.h"
+#include "cairo-buffer.h"
+#include <cairo.h>
+#include "pango/pango-font.h"
+#include "pango/pango-layout.h"
+#include "pango/pangocairo.h"
 #include "view.h"
 #include "xdg-shell.h"
 
@@ -17,11 +22,13 @@ void sonde_apply_decorations(struct sonde_xdg_decoration *decoration) {
   
   sonde_view_t view = sonde_xdg_view_from_sonde_xdg_decoration(decoration);
   sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(view);
+  sonde_server_t server = view->server;
 
   if (decoration->client_mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE) {
-    if (!decoration->scene_tree)
-      decoration->scene_tree = wlr_scene_tree_create(view->scene_tree);
-    
+    // already exists
+    if (decoration->scene_tree) return;
+
+    decoration->scene_tree = wlr_scene_tree_create(view->scene_tree);
     wlr_scene_node_lower_to_bottom(&decoration->scene_tree->node);
 
     float bg_color[4] = {1, 1, 0.2, 1.0}; // yellow
@@ -34,14 +41,44 @@ void sonde_apply_decorations(struct sonde_xdg_decoration *decoration) {
     wlr_xdg_surface_get_geometry(sonde_xdg_view->toplevel->base, &toplevel_box);
     wlr_log(WLR_DEBUG, "LIFECYCLE toplevel extents %dx%d @ (%d, %d)", toplevel_box.width, toplevel_box.height, toplevel_box.x, toplevel_box.y);
 
-    if (!decoration->rect)
-      decoration->rect = wlr_scene_rect_create(decoration->scene_tree, toplevel_box.width, toplevel_box.height, bg_color);
+    decoration->rect = wlr_scene_rect_create(decoration->scene_tree, toplevel_box.width, toplevel_box.height, bg_color);
     
     wlr_scene_node_set_position(&decoration->scene_tree->node, 0, 0);
-    wlr_scene_node_set_position(&view->surface_scene_tree->node, 5, 5);
+    wlr_scene_node_set_position(&view->surface_scene_tree->node, 5, 20);
 
-    wlr_xdg_toplevel_set_size(sonde_xdg_view->toplevel, toplevel_box.width - 10, toplevel_box.height - 10);
+    wlr_xdg_toplevel_set_size(sonde_xdg_view->toplevel, toplevel_box.width - 10, toplevel_box.height - 25);
+
+    // 5 margin on each side
+    int titlebar_width = toplevel_box.width - 10;
+    // total space on top is 20, 2.5 margin on top/bottom
+    int titlebar_height = 15;
+
+    // titlebar
+    decoration->titlebar = sonde_cairo_buffer_create(titlebar_width, titlebar_height);
+    wlr_scene_node_set_position(
+      &wlr_scene_buffer_create(
+        decoration->scene_tree,
+        &decoration->titlebar->buffer)->node,
+      5, 2);
+    decoration->titlebar_pango = pango_cairo_create_layout(decoration->titlebar->cairo);
+
+    // set font
+    // TODO: config
+    PangoFontDescription *desc = pango_font_description_from_string("Fira Code 10");
+    pango_layout_set_font_description(decoration->titlebar_pango, desc);
+    pango_font_description_free(desc);
+
+    sonde_decoration_update_title(decoration, sonde_xdg_view->toplevel->title);
   }
+}
+
+void sonde_decoration_update_title(struct sonde_xdg_decoration *decoration,
+                                   const char *title) {
+  // TODO: clear
+  cairo_set_source_rgb(decoration->titlebar->cairo, 0, 0, 0);
+  pango_layout_set_text(decoration->titlebar_pango, title, -1);
+  pango_cairo_show_layout(decoration->titlebar->cairo, decoration->titlebar_pango);
+  cairo_surface_flush(decoration->titlebar->cairo_surface);
 }
 
 void sonde_decoration_set_focus(struct sonde_xdg_decoration *decoration,
@@ -49,8 +86,9 @@ void sonde_decoration_set_focus(struct sonde_xdg_decoration *decoration,
   sonde_view_t view = sonde_xdg_view_from_sonde_xdg_decoration(decoration);
   sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(view);
 
-  float unfocused_color[4] = {1, 0.2, 0.2, 1.0}; // yellow
-  float focused_color[4] = {1, 1, 0.2, 1.0}; // red
+  // TODO: config
+  float unfocused_color[4] = {1, 1, 0.2, 1.0}; // yellow
+  float focused_color[4] = {1, 0.2, 0.2, 1.0}; // red
 
   wlr_scene_rect_set_color(decoration->rect, focused ? focused_color : unfocused_color);
 }
@@ -58,6 +96,11 @@ void sonde_decoration_set_focus(struct sonde_xdg_decoration *decoration,
 
 void sonde_decoration_destroy(
     struct sonde_xdg_decoration *sonde_xdg_decoration) {
+  if (sonde_xdg_decoration->titlebar != NULL) {
+    g_object_unref(sonde_xdg_decoration->titlebar_pango);
+    sonde_cairo_buffer_destroy(sonde_xdg_decoration->titlebar);
+    sonde_xdg_decoration->titlebar = NULL;
+  }
   if (sonde_xdg_decoration->destroy.notify != NULL) {
     wl_list_remove(&sonde_xdg_decoration->destroy.link);
     sonde_xdg_decoration->destroy.notify = NULL;
@@ -71,4 +114,7 @@ void sonde_decoration_destroy(
     wl_list_remove(&sonde_xdg_decoration->surface_commit.link);
     sonde_xdg_decoration->surface_commit.notify = NULL;
   }
+
+  // destroy the entire scene tree
+  wlr_scene_node_destroy(&sonde_xdg_decoration->scene_tree->node);
 }

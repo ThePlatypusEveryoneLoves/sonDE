@@ -46,9 +46,8 @@ WL_CALLBACK(on_toplevel_destroy) {
   sonde_view_t sonde_view = wl_container_of(listener, sonde_view, destroy);
   sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(sonde_view);
 
-  wlr_scene_node_destroy(&sonde_view->scene_tree->node);
-
   sonde_decoration_destroy(&sonde_view->decoration);
+  wlr_scene_node_destroy(&sonde_view->scene_tree->node);
 
   wl_list_remove(&sonde_view->map.link);
   wl_list_remove(&sonde_view->unmap.link);

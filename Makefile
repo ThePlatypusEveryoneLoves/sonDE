@@ -2,7 +2,7 @@ PKG_CONFIG?=pkg-config
 WAYLAND_PROTOCOLS!=$(PKG_CONFIG) --variable=pkgdatadir wayland-protocols
 WAYLAND_SCANNER!=$(PKG_CONFIG) --variable=wayland_scanner wayland-scanner
 
-PKGS="wlroots-0.18" wayland-server xkbcommon lua
+PKGS="wlroots-0.18" wayland-server xkbcommon lua pango cairo pangocairo
 CFLAGS_PKG_CONFIG!=$(PKG_CONFIG) --cflags $(PKGS)
 CFLAGS+=$(CFLAGS_PKG_CONFIG)
 LIBS!=$(PKG_CONFIG) --libs $(PKGS)
@@ -33,7 +33,7 @@ $(eval $(call WAYLAND_PROTOCOL_RULE,xdg-shell-protocol.h,stable/xdg-shell/xdg-sh
 $(eval $(call WAYLAND_PROTOCOL_RULE,pointer-constraints-unstable-v1-protocol.h,unstable/pointer-constraints/pointer-constraints-unstable-v1.xml))
 
 bin/objects/%.o: src/%.c $(PROTOCOL_HEADER_PATHS) $(HEADERS) | bin/objects
-	$(CC) -c $< -g -Werror $(CFLAGS) -DDEBUG_LOG -fsanitize=address -Iinclude -Iinclude/protocols -DWLR_USE_UNSTABLE -o $@
+	$(CC) -c $< -g -Werror $(CFLAGS) -DDEBUG_LOG -fsanitize=address -Iinclude -Iinclude/protocols -I/usr/include/pango1.0 -DWLR_USE_UNSTABLE -o $@
 
 bin/sonde: $(OBJS)
 	$(CC) $^ $> -g -Werror -DDEBUG_LOG $(CFLAGS) -fsanitize=address $(LDFLAGS) $(LIBS) -o $@
