@@ -63,21 +63,31 @@ WL_CALLBACK(on_toplevel_destroy) {
 
 WL_CALLBACK(on_toplevel_request_move) {
   sonde_view_t sonde_view = wl_container_of(listener, sonde_view, request_move);
+  sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(sonde_view);
+  wlr_xdg_surface_schedule_configure(sonde_xdg_view->toplevel->base);
 }
 
 WL_CALLBACK(on_toplevel_request_resize) {
+  wlr_log(WLR_INFO, "request resize");
   sonde_view_t sonde_view =
       wl_container_of(listener, sonde_view, request_resize);
+  sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(sonde_view);
+  wlr_xdg_surface_schedule_configure(sonde_xdg_view->toplevel->base);
+  sonde_decoration_update_size(&sonde_view->decoration);
 }
 
 WL_CALLBACK(on_toplevel_request_maximize) {
   sonde_view_t sonde_view =
       wl_container_of(listener, sonde_view, request_maximize);
+  sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(sonde_view);
+  wlr_xdg_surface_schedule_configure(sonde_xdg_view->toplevel->base);
 }
 
 WL_CALLBACK(on_toplevel_request_fullscreen) {
   sonde_view_t sonde_view =
       wl_container_of(listener, sonde_view, request_fullscreen);
+  sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(sonde_view);
+  wlr_xdg_surface_schedule_configure(sonde_xdg_view->toplevel->base);
 }
 
 WL_CALLBACK(on_toplevel_set_title) {

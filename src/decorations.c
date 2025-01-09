@@ -21,7 +21,6 @@ void sonde_apply_decorations(struct sonde_xdg_decoration *decoration) {
   }
   
   sonde_view_t view = sonde_view_from_sonde_xdg_decoration(decoration);
-  sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(view);
   sonde_server_t server = view->server;
 
   if (decoration->client_mode == WLR_XDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE) {
@@ -33,43 +32,16 @@ void sonde_apply_decorations(struct sonde_xdg_decoration *decoration) {
 
     float bg_color[4] = {1, 1, 0.2, 1.0}; // yellow
 
-    sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(view);
-    
-
-    struct wlr_box toplevel_box;
-    
-    wlr_xdg_surface_get_geometry(sonde_xdg_view->toplevel->base, &toplevel_box);
-    wlr_log(WLR_DEBUG, "LIFECYCLE toplevel extents %dx%d @ (%d, %d)", toplevel_box.width, toplevel_box.height, toplevel_box.x, toplevel_box.y);
-
-    decoration->rect = wlr_scene_rect_create(decoration->scene_tree, toplevel_box.width, toplevel_box.height, bg_color);
-    
-    wlr_scene_node_set_position(&decoration->scene_tree->node, 0, 0);
-    wlr_scene_node_set_position(&view->surface_scene_tree->node, 5, 20);
-
-    wlr_xdg_toplevel_set_size(sonde_xdg_view->toplevel, toplevel_box.width - 10, toplevel_box.height - 25);
-
-    // 5 margin on each side
-    int titlebar_width = toplevel_box.width - 10;
-    // total space on top is 20, 2.5 margin on top/bottom
-    int titlebar_height = 15;
+    decoration->rect = wlr_scene_rect_create(decoration->scene_tree, 0, 0, bg_color);
+    wlr_scene_node_set_position(&decoration->rect->node, 0, SONDE_DECORATION_TITLEBAR_HEIGHT);
+    wlr_scene_node_set_position(&view->surface_scene_tree->node, SONDE_DECORATION_BORDER_WIDTH, SONDE_DECORATION_TITLEBAR_HEIGHT + SONDE_DECORATION_BORDER_WIDTH);
 
     // titlebar
-    decoration->titlebar = sonde_cairo_buffer_create(titlebar_width, titlebar_height);
     decoration->titlebar_node = wlr_scene_buffer_create(
-        decoration->scene_tree,
-        &decoration->titlebar->buffer);
-    wlr_scene_node_set_position(
-      &decoration->titlebar_node->node,
-      5, 2);
-    decoration->titlebar_pango = pango_cairo_create_layout(decoration->titlebar->cairo);
+        decoration->scene_tree, NULL);
 
-    // set font
-    // TODO: config
-    PangoFontDescription *desc = pango_font_description_from_string("Fira Code 10");
-    pango_layout_set_font_description(decoration->titlebar_pango, desc);
-    pango_font_description_free(desc);
-
-    sonde_decoration_update_title(decoration);
+    sonde_decoration_update_size(decoration);
+    //sonde_decoration_update_title(decoration);
   }
 }
 
@@ -79,16 +51,50 @@ void sonde_decoration_update_title(struct sonde_xdg_decoration *decoration) {
   // not ready yet
   if (decoration->titlebar == NULL) return;
 
-  cairo_save(decoration->titlebar->cairo);
-  cairo_set_operator(decoration->titlebar->cairo, CAIRO_OPERATOR_CLEAR);
+  //cairo_save(decoration->titlebar->cairo);
+  //cairo_set_operator(decoration->titlebar->cairo, CAIRO_OPERATOR_CLEAR);
+  cairo_set_source_rgb(decoration->titlebar->cairo, 1, 0, 0);
   cairo_paint(decoration->titlebar->cairo);
-  cairo_restore(decoration->titlebar->cairo);
+  //cairo_restore(decoration->titlebar->cairo);
   
   cairo_set_source_rgb(decoration->titlebar->cairo, 0, 0, 0);
   pango_layout_set_text(decoration->titlebar_pango, title, -1);
   pango_cairo_show_layout(decoration->titlebar->cairo, decoration->titlebar_pango);
   cairo_surface_flush(decoration->titlebar->cairo_surface);
   wlr_scene_buffer_set_buffer(decoration->titlebar_node, &decoration->titlebar->buffer);
+}
+
+void sonde_decoration_update_size(struct sonde_xdg_decoration *decoration) {
+  wlr_log(WLR_INFO, "update decoration size");
+  // destroy and recreate the titlebar
+  if (decoration->titlebar != NULL)
+    sonde_cairo_buffer_destroy(decoration->titlebar);
+  if (decoration->titlebar_pango != NULL)
+    g_object_unref(decoration->titlebar_pango);
+
+  sonde_view_t view = sonde_view_from_sonde_xdg_decoration(decoration);
+  sonde_xdg_view_t xdg_view = sonde_xdg_view_from_sonde_view(view);
+
+  struct wlr_box toplevel_box;
+  wlr_xdg_surface_get_geometry(xdg_view->toplevel->base, &toplevel_box);
+
+  int overall_width = toplevel_box.width + SONDE_DECORATION_BORDER_WIDTH * 2;
+
+  // recreate
+  decoration->titlebar = sonde_cairo_buffer_create(overall_width, SONDE_DECORATION_TITLEBAR_HEIGHT);
+  decoration->titlebar_pango = pango_cairo_create_layout(decoration->titlebar->cairo);
+  
+  // set font
+  // TODO: config
+  PangoFontDescription *desc = pango_font_description_from_string("Fira Code 10");
+  pango_layout_set_font_description(decoration->titlebar_pango, desc);
+  pango_font_description_free(desc);
+
+  // repaint
+  sonde_decoration_update_title(decoration);
+
+  // update the box size
+  wlr_scene_rect_set_size(decoration->rect, overall_width, toplevel_box.height + SONDE_DECORATION_BORDER_WIDTH * 2);
 }
 
 void sonde_decoration_set_focus(struct sonde_xdg_decoration *decoration,
@@ -106,7 +112,6 @@ void sonde_decoration_set_focus(struct sonde_xdg_decoration *decoration,
 
 void sonde_decoration_destroy(
     struct sonde_xdg_decoration *sonde_xdg_decoration) {
-  // we use titlebar as a "marker" for whether this has been destroyed
   if (sonde_xdg_decoration->titlebar != NULL) {
     sonde_xdg_decoration->titlebar = NULL;
     sonde_cairo_buffer_destroy(sonde_xdg_decoration->titlebar);

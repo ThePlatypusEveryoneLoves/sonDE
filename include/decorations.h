@@ -4,6 +4,9 @@
 #include "cairo-buffer.h"
 #include <pango/pangocairo.h>
 
+#define SONDE_DECORATION_BORDER_WIDTH 1
+#define SONDE_DECORATION_TITLEBAR_HEIGHT 20
+
 struct sonde_xdg_decoration {
   struct wlr_xdg_toplevel_decoration_v1 *xdg_decoration;
   enum wlr_xdg_toplevel_decoration_v1_mode client_mode;
@@ -29,4 +32,4 @@ void sonde_decoration_destroy(
   struct sonde_xdg_decoration *sonde_xdg_decoration);
 void sonde_decoration_update_title(
   struct sonde_xdg_decoration *decoration);
-
+void sonde_decoration_update_size(struct sonde_xdg_decoration *decoration);
