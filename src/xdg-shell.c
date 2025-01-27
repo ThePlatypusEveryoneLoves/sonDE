@@ -184,7 +184,7 @@ WL_CALLBACK(on_new_popup) {
 int sonde_xdg_shell_initialize(sonde_server_t server) {
   // XDG Shell
   wl_list_init(&server->views);
-  server->xdg_shell = wlr_xdg_shell_create(server->display, 3);
+  server->xdg_shell = wlr_xdg_shell_create(server->display, 6);
   if (server->xdg_shell == NULL) {
     wlr_log(WLR_ERROR, "failed to create xdg-shell");
     return 1;

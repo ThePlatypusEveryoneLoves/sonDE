@@ -40,6 +40,10 @@ struct sonde_server {
   struct wl_listener new_toplevel_decoration;
   //struct wlr_server_decoration_manager *kde_decoration_manager;
 
+  // layer-shell
+  struct wlr_layer_shell_v1 *layer_shell;
+  struct wl_listener new_layer_shell_surface;
+
   // seat
   struct wl_list keyboards;
   struct wl_listener new_input;
