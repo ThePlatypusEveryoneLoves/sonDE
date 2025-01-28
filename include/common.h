@@ -45,6 +45,9 @@
 ///     strdup, but STR can be NULL
 #define STRDUP(STR) (STR) == NULL ? NULL : strdup((STR))
 
+/// Returns null if a pointer is null, else applies a function to it
+#define PTR_FN(PTR, FN) (PTR) == NULL ? NULL : FN((PTR))
+
 /// Similar to strcpy but not really
 /// Frees dest if not null, copies src, and assigns the new pointer into dest
 /// Does nothing if src is null

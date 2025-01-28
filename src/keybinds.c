@@ -19,6 +19,9 @@ struct sonde_keybind_command *sonde_keybind_find(sonde_keybinds_t keybinds, uint
   bool shift = (wlr_modifiers & WLR_MODIFIER_SHIFT) != 0;
   bool super = (wlr_modifiers & WLR_MODIFIER_LOGO) != 0;
   uint8_t modifiers = (ctrl << 3) | (alt << 2) | (shift << 1) | (super << 0);
+
+  // convert uppercase keys into lowercase keys
+  if (key >= 'A' && key <= 'Z') key += 'a' - 'A';
   
   struct sonde_keybind *item;
   // lookup the array of keybinds in the modifiers "hashmap"

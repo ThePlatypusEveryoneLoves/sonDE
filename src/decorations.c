@@ -1,6 +1,7 @@
 #include "decorations.h"
 #include "cairo-buffer.h"
 #include <cairo.h>
+#include "pango/pango-color.h"
 #include "pango/pango-font.h"
 #include "pango/pango-layout.h"
 #include "pango/pangocairo.h"
@@ -30,10 +31,9 @@ void sonde_apply_decorations(struct sonde_xdg_decoration *decoration) {
     decoration->scene_tree = wlr_scene_tree_create(view->scene_tree);
     wlr_scene_node_lower_to_bottom(&decoration->scene_tree->node);
 
-    float bg_color[4] = {1, 1, 0.2, 1.0}; // yellow
+    float bg_color[4] = {0,0,0,0};
 
     decoration->rect = wlr_scene_rect_create(decoration->scene_tree, 0, 0, bg_color);
-    wlr_scene_node_set_position(&decoration->rect->node, 0, SONDE_DECORATION_TITLEBAR_HEIGHT);
     wlr_scene_node_set_position(&view->surface_scene_tree->node, SONDE_DECORATION_BORDER_WIDTH, SONDE_DECORATION_TITLEBAR_HEIGHT + SONDE_DECORATION_BORDER_WIDTH);
 
     // titlebar
@@ -41,6 +41,7 @@ void sonde_apply_decorations(struct sonde_xdg_decoration *decoration) {
         decoration->scene_tree, NULL);
 
     sonde_decoration_update_size(decoration);
+    sonde_decoration_set_focus(decoration, true);
     //sonde_decoration_update_title(decoration);
   }
 }
@@ -53,11 +54,14 @@ void sonde_decoration_update_title(struct sonde_xdg_decoration *decoration) {
 
   //cairo_save(decoration->titlebar->cairo);
   //cairo_set_operator(decoration->titlebar->cairo, CAIRO_OPERATOR_CLEAR);
-  cairo_set_source_rgb(decoration->titlebar->cairo, 1, 0, 0);
+  if (decoration->focused)
+    cairo_set_source_rgb(decoration->titlebar->cairo, 0.4, 0.361, 0.329);
+  else
+    cairo_set_source_rgb(decoration->titlebar->cairo, 0.235, 0.220, 0.211);
   cairo_paint(decoration->titlebar->cairo);
   //cairo_restore(decoration->titlebar->cairo);
   
-  cairo_set_source_rgb(decoration->titlebar->cairo, 0, 0, 0);
+  cairo_set_source_rgb(decoration->titlebar->cairo, 0.921, 0.858, 0.698);
   pango_layout_set_text(decoration->titlebar_pango, title, -1);
   pango_cairo_show_layout(decoration->titlebar->cairo, decoration->titlebar_pango);
   cairo_surface_flush(decoration->titlebar->cairo_surface);
@@ -65,12 +69,15 @@ void sonde_decoration_update_title(struct sonde_xdg_decoration *decoration) {
 }
 
 void sonde_decoration_update_size(struct sonde_xdg_decoration *decoration) {
-  wlr_log(WLR_INFO, "update decoration size");
   // destroy and recreate the titlebar
-  if (decoration->titlebar != NULL)
+  if (decoration->titlebar != NULL){
     sonde_cairo_buffer_destroy(decoration->titlebar);
-  if (decoration->titlebar_pango != NULL)
+    decoration->titlebar = NULL;
+  }
+  if (decoration->titlebar_pango != NULL) {
     g_object_unref(decoration->titlebar_pango);
+    decoration->titlebar_pango = NULL;
+  }
 
   sonde_view_t view = sonde_view_from_sonde_xdg_decoration(decoration);
   sonde_xdg_view_t xdg_view = sonde_xdg_view_from_sonde_view(view);
@@ -81,7 +88,9 @@ void sonde_decoration_update_size(struct sonde_xdg_decoration *decoration) {
   int overall_width = toplevel_box.width + SONDE_DECORATION_BORDER_WIDTH * 2;
 
   // recreate
-  decoration->titlebar = sonde_cairo_buffer_create(overall_width, SONDE_DECORATION_TITLEBAR_HEIGHT);
+  decoration->titlebar = sonde_cairo_buffer_create(toplevel_box.width, SONDE_DECORATION_TITLEBAR_HEIGHT - SONDE_DECORATION_BORDER_WIDTH);
+  // show border around titlebar
+  wlr_scene_node_set_position(&decoration->titlebar_node->node, SONDE_DECORATION_BORDER_WIDTH, SONDE_DECORATION_BORDER_WIDTH);
   decoration->titlebar_pango = pango_cairo_create_layout(decoration->titlebar->cairo);
   
   // set font
@@ -94,7 +103,7 @@ void sonde_decoration_update_size(struct sonde_xdg_decoration *decoration) {
   sonde_decoration_update_title(decoration);
 
   // update the box size
-  wlr_scene_rect_set_size(decoration->rect, overall_width, toplevel_box.height + SONDE_DECORATION_BORDER_WIDTH * 2);
+  wlr_scene_rect_set_size(decoration->rect, overall_width, toplevel_box.height + SONDE_DECORATION_BORDER_WIDTH * 2 + SONDE_DECORATION_TITLEBAR_HEIGHT);
 }
 
 void sonde_decoration_set_focus(struct sonde_xdg_decoration *decoration,
@@ -102,19 +111,24 @@ void sonde_decoration_set_focus(struct sonde_xdg_decoration *decoration,
   sonde_view_t view = sonde_view_from_sonde_xdg_decoration(decoration);
   sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(view);
 
+  decoration->focused = focused;
+
   // TODO: config
-  float unfocused_color[4] = {1, 1, 0.2, 1.0}; // yellow
-  float focused_color[4] = {1, 0.2, 0.2, 1.0}; // red
+  float unfocused_color[4] = {0.235, 0.220, 0.211, 1.0};
+  float focused_color[4] = {0.486, 0.435, 0.392, 1.0};
 
   wlr_scene_rect_set_color(decoration->rect, focused ? focused_color : unfocused_color);
+
+  // update title color
+  sonde_decoration_update_title(decoration);
 }
 
 
 void sonde_decoration_destroy(
     struct sonde_xdg_decoration *sonde_xdg_decoration) {
   if (sonde_xdg_decoration->titlebar != NULL) {
-    sonde_xdg_decoration->titlebar = NULL;
     sonde_cairo_buffer_destroy(sonde_xdg_decoration->titlebar);
+    sonde_xdg_decoration->titlebar = NULL;
     g_object_unref(sonde_xdg_decoration->titlebar_pango);
 
     // these could be null if they were never set (non xdg decoration), or unset already

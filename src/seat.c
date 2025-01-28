@@ -21,6 +21,12 @@ WL_CALLBACK(on_keyboard_modifiers) {
 
 // handle WM keybindings!!
 static void handle_command(sonde_server_t server, struct sonde_keybind_command *command) {
+  // get the current surface/toplevel/sonde view
+  struct wlr_surface *current_surface =
+    server->seat->keyboard_state.focused_surface;
+  struct wlr_xdg_toplevel *current_toplevel = PTR_FN(current_surface, wlr_xdg_toplevel_try_from_wlr_surface);
+  sonde_xdg_view_t sonde_xdg_view = PTR_FN(current_toplevel, sonde_xdg_view_from_wlr_xdg_toplevel);
+  
   switch (command->type) {
   case SONDE_KEYBIND_COMMAND_EXIT:
     wl_display_terminate(server->display);
@@ -31,6 +37,18 @@ static void handle_command(sonde_server_t server, struct sonde_keybind_command *
 
     sonde_view_t next_view = wl_container_of(server->views.prev, next_view, link);
     sonde_view_focus(next_view);
+    break;
+  case SONDE_KEYBIND_COMMAND_TILE_LEFT:
+    if (sonde_xdg_view)
+      sonde_view_change_tiling(&sonde_xdg_view->base, false);
+    break;
+  case SONDE_KEYBIND_COMMAND_TILE_RIGHT:
+    if (sonde_xdg_view)
+      sonde_view_change_tiling(&sonde_xdg_view->base, true);
+    break;
+  case SONDE_KEYBIND_COMMAND_CLOSE_WINDOW:
+    if (current_toplevel)
+      wlr_xdg_toplevel_send_close(current_toplevel);
     break;
   case SONDE_KEYBIND_COMMAND_LAUNCH:
     // launch specified command

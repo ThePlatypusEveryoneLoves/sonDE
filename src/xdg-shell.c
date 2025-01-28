@@ -1,5 +1,6 @@
 #include "xdg-shell.h"
 #include "common.h"
+#include "outputs.h"
 #include "view.h"
 #include "decorations.h"
 #include "decoration-manager.h"
@@ -37,8 +38,16 @@ WL_CALLBACK(on_toplevel_commit) {
     // configuration for the first commit  (we could change geometry here)
     wlr_xdg_surface_schedule_configure(sonde_xdg_view->toplevel->base);
     /*Let the client decide the size that they want to be*/
+
+    
     // TODO: tiling stuff, prespecified size
-    wlr_xdg_toplevel_set_size(sonde_xdg_view->toplevel, 0, 0);
+    struct sonde_output *output = wl_container_of(sonde_view->server->outputs.next, output, link);
+    // width is half minus border
+    int width = output->output->width / 2 - SONDE_DECORATION_BORDER_WIDTH * 2;
+    // height is full minus top and bottom
+    int height = output->output->height - SONDE_DECORATION_BORDER_WIDTH - SONDE_DECORATION_TITLEBAR_HEIGHT - SONDE_BOTTOM_HEIGHT;
+    wlr_xdg_toplevel_set_size(sonde_xdg_view->toplevel, width, height);
+    wlr_scene_node_set_position(&sonde_view->scene_tree->node, 0, 0);
   }
 }
 

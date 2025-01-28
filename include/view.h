@@ -25,6 +25,10 @@ struct sonde_view {
   struct wlr_scene_tree *scene_tree;
   struct wlr_scene_tree *surface_scene_tree;
   struct wlr_surface *surface;
+
+  // TODO: better tiling
+  bool is_on_right;
+  
   enum {
     SONDE_XDG,
 #ifdef SONDE_XWAYLAND
@@ -43,3 +47,4 @@ void sonde_view_focus(sonde_view_t sonde_view);
 sonde_view_t sonde_view_at(sonde_server_t server, double lx, double ly,
                            struct wlr_surface **surface, double *sx,
                            double *sy);
+void sonde_view_change_tiling(sonde_view_t sonde_view, bool on_right);

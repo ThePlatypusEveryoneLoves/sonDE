@@ -2,6 +2,7 @@
 #include "cursor.h"
 #include "xdg-shell.h"
 #include "decorations.h"
+#include "outputs.h"
 
 sonde_view_t sonde_view_at(sonde_server_t server, double lx,
                                          double ly,
@@ -27,6 +28,17 @@ sonde_view_t sonde_view_at(sonde_server_t server, double lx,
   while (tree != NULL && tree->node.data == NULL)
     tree = tree->node.parent;
   return tree == NULL ? NULL : tree->node.data;
+}
+
+void sonde_view_change_tiling(sonde_view_t sonde_view, bool on_right) {
+  struct sonde_output *output = wl_container_of(sonde_view->server->outputs.next, output, link);
+  sonde_view->is_on_right = on_right;
+
+  if (on_right) {
+    wlr_scene_node_set_position(&sonde_view->scene_tree->node, output->output->width / 2, 0);
+  } else {
+    wlr_scene_node_set_position(&sonde_view->scene_tree->node, 0, 0);
+  }
 }
 
 // move a toplevel to front

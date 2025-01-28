@@ -150,6 +150,18 @@ static const struct luaL_Reg keybind_command_fns[] = {
   {NULL, NULL}
 };
 
+static int keybind_command_destroy(lua_State *lua_state) {
+  struct sonde_keybind_command *command = luaL_checkudata(lua_state, 1, SONDE_KEYBIND_COMMAND_META);
+  // free the string
+  free(command->data);
+  return 0;
+}
+
+static const struct luaL_Reg keybind_command_metatable[] = {
+  { "__gc", keybind_command_destroy },
+  {NULL, NULL}
+};
+
 /// Initializes the "key" and "mod" global readonly tables, and creates all metatables
 static void init_keybind_globals(struct sonde_config *config) {
   // modifier metatable
@@ -192,6 +204,8 @@ static void init_keybind_globals(struct sonde_config *config) {
   luaL_newmetatable(config->lua_state, SONDE_KEYBIND_SPECIFIER_META);
   luaL_newmetatable(config->lua_state, SONDE_KEYBIND_KEY_META);
   luaL_newmetatable(config->lua_state, SONDE_KEYBIND_COMMAND_META);
+  // need destructors for this one
+  luaL_setfuncs(config->lua_state, keybind_command_metatable, 0);
 
   // commands table
   lua_newtable(config->lua_state);
@@ -213,6 +227,9 @@ static void init_keybind_globals(struct sonde_config *config) {
   SONDE_CREATE_KEYBIND_COMMAND(exit, SONDE_KEYBIND_COMMAND_EXIT);
   SONDE_CREATE_KEYBIND_COMMAND(next_window, SONDE_KEYBIND_COMMAND_NEXT_VIEW);
   SONDE_CREATE_KEYBIND_COMMAND(previous_window, SONDE_KEYBIND_COMMAND_PREV_VIEW);
+  SONDE_CREATE_KEYBIND_COMMAND(tile_left, SONDE_KEYBIND_COMMAND_TILE_LEFT);
+  SONDE_CREATE_KEYBIND_COMMAND(tile_right, SONDE_KEYBIND_COMMAND_TILE_RIGHT);
+  SONDE_CREATE_KEYBIND_COMMAND(close_window, SONDE_KEYBIND_COMMAND_CLOSE_WINDOW);
 
 #undef SONDE_CREATE_KEYBIND_COMMAND
 
@@ -521,6 +538,6 @@ void sonde_config_destroy(struct sonde_config *config) {
   // free paths
   free(config->conf_files[0]);
   free(config->conf_files[1]);
-
+  
   lua_close(config->lua_state);
 }
