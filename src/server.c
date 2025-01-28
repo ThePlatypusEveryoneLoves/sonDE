@@ -1,5 +1,6 @@
 #include "server.h"
 #include "cursor.h"
+#include "layer-shell.h"
 #include "outputs.h"
 #include "seat.h"
 #include "config.h"
@@ -57,6 +58,11 @@ int sonde_server_create(sonde_server_t server) {
     return 1;
   }
 
+  if (sonde_layer_shell_initialize(server) != 0) {
+    wlr_log(WLR_ERROR, "Failed to initialize layer_shell");
+    return 1;
+  }
+
   if (sonde_decoration_manager_initialize(server) != 0) {
     wlr_log(WLR_ERROR, "failed to initialize XDG decoration manager");
     return 1;
@@ -98,6 +104,7 @@ int sonde_server_start(sonde_server_t server) {
 
 void sonde_server_destroy(sonde_server_t server) {
   if (server->display != NULL) wl_display_destroy_clients(server->display);
+  sonde_layer_shell_destroy(server);
   sonde_decoration_manager_destroy(server);
   sonde_xdg_shell_destroy(server);
   sonde_outputs_destroy(server);

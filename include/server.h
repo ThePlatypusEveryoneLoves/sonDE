@@ -43,6 +43,7 @@ struct sonde_server {
   // layer-shell
   struct wlr_layer_shell_v1 *layer_shell;
   struct wl_listener new_layer_shell_surface;
+  struct wl_list layer_shell_surfaces;
 
   // seat
   struct wl_list keyboards;
