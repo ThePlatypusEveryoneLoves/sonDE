@@ -45,6 +45,9 @@ struct sonde_server {
   struct wl_listener new_layer_shell_surface;
   struct wl_list layer_shell_surfaces;
 
+  // output-manager
+  struct wlr_output_manager_v1 *output_manager;
+
   // seat
   struct wl_list keyboards;
   struct wl_listener new_input;

@@ -7,6 +7,7 @@
 #include "wlr/util/log.h"
 #include "xdg-shell.h"
 #include "decoration-manager.h"
+#include "output-manager.h"
 #include <unistd.h>
 
 int sonde_server_create(sonde_server_t server) {
@@ -63,6 +64,11 @@ int sonde_server_create(sonde_server_t server) {
     return 1;
   }
 
+  if (sonde_output_manager_initialize(server) != 0) {
+    wlr_log(WLR_ERROR, "Failed to initialize output_manager");
+    return 1;
+  }
+
   if (sonde_decoration_manager_initialize(server) != 0) {
     wlr_log(WLR_ERROR, "failed to initialize XDG decoration manager");
     return 1;
@@ -113,6 +119,7 @@ void sonde_server_destroy(sonde_server_t server) {
   wlr_renderer_destroy(server->renderer);
   wlr_backend_destroy(server->backend);
   sonde_seat_destroy(server);
+  sonde_output_manager_destroy(server);
   if (server->display != NULL) wl_display_destroy(server->display);
 
   sonde_config_destroy(&server->config);

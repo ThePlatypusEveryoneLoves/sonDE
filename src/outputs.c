@@ -1,5 +1,6 @@
 #include "outputs.h"
 #include "common.h"
+#include "output-manager.h"
 #include <wlr/backend/wayland.h>
 #include <wlr/backend/x11.h>
 
@@ -33,6 +34,10 @@ WL_CALLBACK(on_output_destroy) {
   wl_list_remove(&sonde_output->request_state.link);
   wl_list_remove(&sonde_output->destroy.link);
   wl_list_remove(&sonde_output->link);
+
+  // update output manager
+  sonde_output_manager_update(sonde_output->server);
+  
   free(sonde_output);
 }
 
@@ -89,6 +94,9 @@ WL_CALLBACK(on_new_output) {
       wlr_scene_output_create(server->scene, output);
   wlr_scene_output_layout_add_output(server->scene_layout, l_output,
                                      scene_output);
+
+  // update output manager
+  sonde_output_manager_update(server);
 }
 
 int sonde_outputs_initialize(sonde_server_t server) {
