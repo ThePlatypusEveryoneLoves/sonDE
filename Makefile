@@ -13,7 +13,7 @@ HEADERS:=$(wildcard include/*.h)
 # wayland-scanner is a tool which generates C headers and rigging for Wayland
 # protocols, which are specified in XML. wlroots requires you to rig these up
 # to your build system yourself and provide them in the include path.
-PROTOCOL_HEADERS=xdg-shell-protocol.h pointer-constraints-unstable-v1-protocol.h wlr-layer-shell-unstable-v1-protocol.h wlr-output-management-unstable-v1-protocol.h
+PROTOCOL_HEADERS=xdg-shell-protocol.h pointer-constraints-unstable-v1-protocol.h wlr-layer-shell-unstable-v1-protocol.h wlr-output-management-unstable-v1-protocol.h xdg-output-unstable-v1-protocol.h
 PROTOCOL_HEADER_PATHS=$(addprefix include/protocols/,$(PROTOCOL_HEADERS))
 
 all: bin/sonde
@@ -34,12 +34,16 @@ $(eval $(call WAYLAND_PROTOCOL_RULE,xdg-shell-protocol.h,$(WAYLAND_PROTOCOLS)/st
 $(eval $(call WAYLAND_PROTOCOL_RULE,pointer-constraints-unstable-v1-protocol.h,$(WAYLAND_PROTOCOLS)/unstable/pointer-constraints/pointer-constraints-unstable-v1.xml))
 $(eval $(call WAYLAND_PROTOCOL_RULE,wlr-layer-shell-unstable-v1-protocol.h,protocols/wlr-layer-shell-unstable-v1.xml))
 $(eval $(call WAYLAND_PROTOCOL_RULE,wlr-output-management-unstable-v1-protocol.h,protocols/wlr-output-management-unstable-v1.xml))
+$(eval $(call WAYLAND_PROTOCOL_RULE,xdg-output-unstable-v1-protocol.h,$(WAYLAND_PROTOCOLS)/unstable/xdg-output/xdg-output-unstable-v1.xml))
 
 bin/objects/%.o: src/%.c $(PROTOCOL_HEADER_PATHS) $(HEADERS) | bin/objects
 	$(CC) -c $< -g -Werror $(CFLAGS) -DDEBUG_LOG -fsanitize=address -Iinclude -Iinclude/protocols -I/usr/include/pango1.0 -DWLR_USE_UNSTABLE -o $@
 
 bin/sonde: $(OBJS)
 	$(CC) $^ $> -g -Werror -DDEBUG_LOG $(CFLAGS) -fsanitize=address $(LDFLAGS) $(LIBS) -o $@
+
+bin/sonde-release: $(OBJS)
+	$(CC) $^ $> -Werror $(CFLAGS) $(LDFLAGS) $(LIBS) -o $@
 
 clean:
 	rm -rf bin include/protocols/

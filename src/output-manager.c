@@ -13,13 +13,19 @@ void sonde_output_manager_update(sonde_server_t server) {
   }
 
   // update
-  wlr_output_manager_v1_set_configuration(server->output_manager, output_config);
+  wlr_output_manager_v1_set_configuration(server->wlr_output_manager, output_config);
 }
 
 int sonde_output_manager_initialize(sonde_server_t server) {
-  server->output_manager = wlr_output_manager_v1_create(server->display);
-  if (server->output_manager == NULL) {
+  server->wlr_output_manager = wlr_output_manager_v1_create(server->display);
+  if (server->wlr_output_manager == NULL) {
     wlr_log(WLR_ERROR, "failed to create wlr output manager");
+    return 1;
+  }
+
+  server->xdg_output_manager = wlr_xdg_output_manager_v1_create(server->display, server->output_layout);
+  if (server->xdg_output_manager == NULL) {
+    wlr_log(WLR_ERROR, "failed to create xdg output manager");
     return 1;
   }
   

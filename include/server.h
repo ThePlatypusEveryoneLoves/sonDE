@@ -26,7 +26,7 @@ struct sonde_server {
   struct wlr_scene_output_layout *scene_layout;
 
   // views
-  struct wl_list views;
+  struct wl_list views; // sonde_view_t->link
 
   // xdg-shell
   struct wlr_xdg_shell *xdg_shell;
@@ -46,7 +46,8 @@ struct sonde_server {
   struct wl_list layer_shell_surfaces;
 
   // output-manager
-  struct wlr_output_manager_v1 *output_manager;
+  struct wlr_output_manager_v1 *wlr_output_manager;
+  struct wlr_xdg_output_manager_v1 *xdg_output_manager;
 
   // seat
   struct wl_list keyboards;

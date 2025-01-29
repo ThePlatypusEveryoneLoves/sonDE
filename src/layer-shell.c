@@ -1,18 +1,80 @@
 #include "layer-shell.h"
 #include "decorations.h"
+#include "outputs.h"
+#include "view.h"
 #include "wlr-layer-shell-unstable-v1-protocol.h"
+
+/// place all layer surfaces on this output in the correct position, and prompt all toplevels to rearrange
+static void arrange_layer_surfaces(sonde_server_t server, struct sonde_output *output) {
+  int currentTop = 0;
+  int currentBottom = 0;
+
+  // output coords
+  int mx = output->output_layout->x;
+  int my = output->output_layout->y;
+  
+  struct sonde_layer_surface *layer_surface;
+  wl_list_for_each(layer_surface, &server->layer_shell_surfaces, link) {
+    // ignore surface from other outputs
+    if (layer_surface->layer_surface->output == output->output) {
+      int height = layer_surface->layer_surface->current.actual_height;
+      switch (layer_surface->layer_surface->current.layer) {
+      case ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND:
+        // move to back
+        wlr_scene_node_lower_to_bottom(&layer_surface->scene_tree->tree->node);
+        break;
+      case ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY:
+        // move to front
+        wlr_scene_node_raise_to_top(&layer_surface->scene_tree->tree->node);
+        break;
+
+        
+      case ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM:
+        // move to front
+        wlr_scene_node_raise_to_top(&layer_surface->scene_tree->tree->node);
+        
+        // update exclusive zone
+        currentBottom += height;
+        
+        // place at bottom of output
+        wlr_scene_node_set_position(&layer_surface->scene_tree->tree->node, mx, my + output->output->height - currentBottom);
+        break;
+      case ZWLR_LAYER_SHELL_V1_LAYER_TOP:
+        // move to front
+        wlr_scene_node_raise_to_top(&layer_surface->scene_tree->tree->node);
+
+        // place at top of output
+        wlr_scene_node_set_position(&layer_surface->scene_tree->tree->node, mx, my + currentTop);
+
+        currentTop += height;
+        break;
+      }
+    }
+  }
+
+  // store the top/bottom margins
+  output->exclusive_margin.top = currentTop;
+  output->exclusive_margin.bottom = currentBottom;
+
+  // relayout toplevels
+  sonde_view_update_sizing_all(server);
+}
 
 WL_CALLBACK(on_surface_map) {
   struct sonde_layer_surface *layer_surface = wl_container_of(listener, layer_surface, map);
 
-  // insert into server toplevels list
+  // insert into server surface list
   wl_list_insert(&layer_surface->server->layer_shell_surfaces, &layer_surface->link);
+
+  arrange_layer_surfaces(layer_surface->server, layer_surface->layer_surface->output->data);
 }
 
 WL_CALLBACK(on_surface_unmap) {
   struct sonde_layer_surface *layer_surface = wl_container_of(listener, layer_surface, unmap);
 
   wl_list_remove(&layer_surface->link);
+
+  arrange_layer_surfaces(layer_surface->server, layer_surface->layer_surface->output->data);
 }
 
 WL_CALLBACK(on_surface_commit) {
@@ -20,31 +82,14 @@ WL_CALLBACK(on_surface_commit) {
 
   if (layer_surface->layer_surface->initial_commit) {
     struct wlr_output *output = layer_surface->layer_surface->output;
-    switch (layer_surface->layer_surface->current.layer) {
-    case ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND:
-      // size to full w/h
-      wlr_layer_surface_v1_configure(layer_surface->layer_surface, output->width, output->height);
-      // move to back
-      wlr_scene_node_lower_to_bottom(&layer_surface->scene_tree->tree->node);
-      break;
-    case ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM:
-      wlr_layer_surface_v1_configure(layer_surface->layer_surface, output->width, SONDE_BOTTOM_HEIGHT);
-      // move to front
-      wlr_scene_node_raise_to_top(&layer_surface->scene_tree->tree->node);
-      // place at bottom of output
-      wlr_scene_node_set_position(&layer_surface->scene_tree->tree->node, 0, output->height - SONDE_BOTTOM_HEIGHT);
-      break;
-    case ZWLR_LAYER_SHELL_V1_LAYER_TOP:
-      wlr_layer_surface_v1_configure(layer_surface->layer_surface, output->width, SONDE_BOTTOM_HEIGHT);
-      // move to front
-      wlr_scene_node_raise_to_top(&layer_surface->scene_tree->tree->node);
-      break;
-    case ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY:
-      wlr_layer_surface_v1_configure(layer_surface->layer_surface, output->width, output->height);
-      // move to front
-      wlr_scene_node_raise_to_top(&layer_surface->scene_tree->tree->node);
-      break;
-    }
+    enum zwlr_layer_shell_v1_layer layer = layer_surface->layer_surface->current.layer;
+    // if on bottom or top, use the desired height
+    // otherwise, use the overall height
+    int height =
+      layer == ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM || layer == ZWLR_LAYER_SHELL_V1_LAYER_TOP ?
+      layer_surface->layer_surface->current.desired_height
+      : output->height;
+    wlr_layer_surface_v1_configure(layer_surface->layer_surface, output->width, height);
   }
 }
 
@@ -70,7 +115,7 @@ WL_CALLBACK(on_new_surface) {
   sonde_layer_surface->surface = surface->surface;
   sonde_layer_surface->scene_tree = wlr_scene_layer_surface_v1_create(&server->scene->tree, surface);
   // set the data field on the scene tree node
-  sonde_layer_surface->scene_tree->tree->node.data = sonde_layer_surface;
+  //sonde_layer_surface->scene_tree->tree->node.data = sonde_layer_surface;
   // set the user data field to the scene tree so we can use in on_new_popup
   // below
   surface->surface->data = sonde_layer_surface->scene_tree->tree;

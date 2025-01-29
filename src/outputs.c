@@ -79,6 +79,8 @@ WL_CALLBACK(on_new_output) {
   struct sonde_output *sonde_output = calloc(1, sizeof(*sonde_output));
   sonde_output->output = output;
   sonde_output->server = server;
+  // set the data field to the sonde_output
+  output->data = sonde_output;
 
   LISTEN(&output->events.frame, &sonde_output->frame, on_output_frame);
   LISTEN(&output->events.request_state, &sonde_output->request_state,
@@ -94,6 +96,8 @@ WL_CALLBACK(on_new_output) {
       wlr_scene_output_create(server->scene, output);
   wlr_scene_output_layout_add_output(server->scene_layout, l_output,
                                      scene_output);
+
+  sonde_output->output_layout = l_output;
 
   // update output manager
   sonde_output_manager_update(server);
@@ -144,4 +148,16 @@ sonde_get_output_or_preferred(struct wlr_output *output,
     }
   }
   return wlr_output_preferred_mode(output);
+}
+
+struct sonde_output *sonde_get_output_at_cursor(sonde_server_t server) {
+  // get the layout
+  struct wlr_output *output = wlr_output_layout_output_at(server->output_layout, server->cursor->x, server->cursor->y);
+  if (output == NULL) return NULL;
+  else return output->data;
+}
+
+struct sonde_output *sonde_get_default_output(sonde_server_t server) {
+  struct sonde_output *output = wl_container_of(server->outputs.next, output, link);
+  return output;
 }

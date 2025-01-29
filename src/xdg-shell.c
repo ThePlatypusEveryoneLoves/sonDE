@@ -35,19 +35,11 @@ WL_CALLBACK(on_toplevel_commit) {
   sonde_xdg_view_t sonde_xdg_view = sonde_xdg_view_from_sonde_view(sonde_view);
 
   if (sonde_xdg_view->toplevel->base->initial_commit) {
-    // configuration for the first commit  (we could change geometry here)
-    wlr_xdg_surface_schedule_configure(sonde_xdg_view->toplevel->base);
-    /*Let the client decide the size that they want to be*/
+    sonde_view_update_sizing(sonde_view);
+  }
 
-    
-    // TODO: tiling stuff, prespecified size
-    struct sonde_output *output = wl_container_of(sonde_view->server->outputs.next, output, link);
-    // width is half minus border
-    int width = output->output->width / 2 - SONDE_DECORATION_BORDER_WIDTH * 2;
-    // height is full minus top and bottom
-    int height = output->output->height - SONDE_DECORATION_BORDER_WIDTH - SONDE_DECORATION_TITLEBAR_HEIGHT - SONDE_BOTTOM_HEIGHT;
-    wlr_xdg_toplevel_set_size(sonde_xdg_view->toplevel, width, height);
-    wlr_scene_node_set_position(&sonde_view->scene_tree->node, 0, 0);
+  if (sonde_xdg_view->toplevel->base->surface->current.height != sonde_xdg_view->toplevel->base->surface->previous.height || sonde_xdg_view->toplevel->base->surface->current.width != sonde_xdg_view->toplevel->base->surface->previous.width) {
+    sonde_decoration_update_size(&sonde_view->decoration);
   }
 }
 
@@ -123,6 +115,12 @@ WL_CALLBACK(on_new_toplevel) {
   // set the user data field to the scene tree so we can use in on_new_popup
   // below
   toplevel->base->data = sonde_xdg_view->base.scene_tree;
+
+  // set the output field on the view
+  sonde_xdg_view->base.output = sonde_get_output_at_cursor(server);
+  // if it's null, get default output
+  if (sonde_xdg_view->base.output == NULL)
+    sonde_xdg_view->base.output = sonde_get_default_output(server);
 
   // event listeners
   LISTEN(&toplevel->base->surface->events.map, &sonde_xdg_view->base.map,

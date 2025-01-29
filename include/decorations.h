@@ -6,7 +6,6 @@
 
 #define SONDE_DECORATION_BORDER_WIDTH 1
 #define SONDE_DECORATION_TITLEBAR_HEIGHT 20
-#define SONDE_BOTTOM_HEIGHT 40
 
 struct sonde_xdg_decoration {
   struct wlr_xdg_toplevel_decoration_v1 *xdg_decoration;

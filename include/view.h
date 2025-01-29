@@ -3,10 +3,13 @@
 #include "common.h"
 #include "server.h"
 #include "decorations.h"
+#include "outputs.h"
 
 struct sonde_view {
   sonde_server_t server;
   struct wl_list link;
+
+  struct sonde_output *output;
 
   struct wl_listener destroy;
   struct wl_listener surface_destroy;
@@ -48,3 +51,6 @@ sonde_view_t sonde_view_at(sonde_server_t server, double lx, double ly,
                            struct wlr_surface **surface, double *sx,
                            double *sy);
 void sonde_view_change_tiling(sonde_view_t sonde_view, bool on_right);
+
+void sonde_view_update_sizing(sonde_view_t view);
+void sonde_view_update_sizing_all(sonde_server_t server);

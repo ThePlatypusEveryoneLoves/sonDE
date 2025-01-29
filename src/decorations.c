@@ -69,6 +69,8 @@ void sonde_decoration_update_title(struct sonde_xdg_decoration *decoration) {
 }
 
 void sonde_decoration_update_size(struct sonde_xdg_decoration *decoration) {
+  if (decoration->titlebar_node == NULL) return;
+  
   // destroy and recreate the titlebar
   if (decoration->titlebar != NULL){
     sonde_cairo_buffer_destroy(decoration->titlebar);
