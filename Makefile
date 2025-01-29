@@ -8,6 +8,7 @@ CFLAGS+=$(CFLAGS_PKG_CONFIG)
 LIBS!=$(PKG_CONFIG) --libs $(PKGS)
 SRCS:=$(wildcard src/*.c)
 OBJS:=$(patsubst src/%.c,bin/objects/%.o,$(SRCS))
+OBJS_REL:=$(patsubst src/%.c,bin/objects/%-release.o,$(SRCS))
 HEADERS:=$(wildcard include/*.h)
 
 # wayland-scanner is a tool which generates C headers and rigging for Wayland
@@ -17,6 +18,7 @@ PROTOCOL_HEADERS=xdg-shell-protocol.h pointer-constraints-unstable-v1-protocol.h
 PROTOCOL_HEADER_PATHS=$(addprefix include/protocols/,$(PROTOCOL_HEADERS))
 
 all: bin/sonde
+release: bin/sonde-release
 
 include/protocols:
 	mkdir -p include/protocols
@@ -39,11 +41,14 @@ $(eval $(call WAYLAND_PROTOCOL_RULE,xdg-output-unstable-v1-protocol.h,$(WAYLAND_
 bin/objects/%.o: src/%.c $(PROTOCOL_HEADER_PATHS) $(HEADERS) | bin/objects
 	$(CC) -c $< -g -Werror $(CFLAGS) -DDEBUG_LOG -fsanitize=address -Iinclude -Iinclude/protocols -I/usr/include/pango1.0 -DWLR_USE_UNSTABLE -o $@
 
+bin/objects/%-release.o: src/%.c $(PROTOCOL_HEADER_PATHS) $(HEADERS) | bin/objects
+	$(CC) -c $< -Werror $(CFLAGS) -Iinclude -Iinclude/protocols -I/usr/include/pango1.0 -DWLR_USE_UNSTABLE -Os -s -o $@
+
 bin/sonde: $(OBJS)
 	$(CC) $^ $> -g -Werror -DDEBUG_LOG $(CFLAGS) -fsanitize=address $(LDFLAGS) $(LIBS) -o $@
 
-bin/sonde-release: $(OBJS)
-	$(CC) $^ $> -Werror $(CFLAGS) $(LDFLAGS) $(LIBS) -o $@
+bin/sonde-release: $(OBJS_REL)
+	$(CC) $^ $> -Werror $(CFLAGS) $(LDFLAGS) $(LIBS) -Os -s -o $@
 
 clean:
 	rm -rf bin include/protocols/
